@@ -60,7 +60,34 @@ function bmr(){const l=lbmKg();return l?370+21.6*l:null} // Katch-McArdle
 function cals(type,mins,int){let m=type==='match'?7:6;m*=int==='Easy'?.8:int==='Hard'?1.2:1;const b=bmr();const perMetHr=b?b/24:kg();return Math.round(m*perMetHr*mins/60)}
 const sessCal=s=>+s.kcal>0?+s.kcal:cals(s.type,s.mins,s.int);
 const sorted=()=>[...S.sessions].sort((a,b)=>b.date.localeCompare(a.date)||(b.time||'').localeCompare(a.time||'')||(b.ts||0)-(a.ts||0));
-const matches=()=>sorted().filter(s=>s.type==='match');
+const allM=()=>sorted().filter(s=>s.type==='match');
+let gtF='all';const matches=()=>allM().filter(s=>gtF==='all'||s.gtype===gtF);
+const GT={A:'Advanced',I:'Intermediate'};
+const LEFTY_SEED={ronnie:1,'dave h':1};
+const isLefty=k=>{const o=(S.lefty||{})[k];return o!=null?!!o:!!LEFTY_SEED[k]};
+function setLefty(k,v){S.lefty=S.lefty||{};S.lefty[k]=v?1:0;save();openPlayer(k)}
+function setStart(k,v){S.startLevels=S.startLevels||{};if(v===''||isNaN(+v))delete S.startLevels[k];else S.startLevels[k]=Math.min(7,Math.max(0,+v));save();_rc=null;if(k==='me')vSet();else openPlayer(k)}
+// ---------- RATINGS (0-7, Elo-style) ----------
+const START_LEVELS={me:4.5,juan:6,steve:4,miles:4,robbie:3.5,ronnie:3.5,flor:4,todd:5,pietro:5,jj:5.5,dani:5.5,blake:5,umberto:5.5,ed:5,anders:4,griff:3.5,adam:3,charlie:3,daniel:3,russ:3.75};
+const DEFAULT_LEVEL=3.5,RSCALE=1.5; // win prob = 1/(1+10^(-(teamA-teamB)/1.5))
+const kFac=n=>0.1+0.3/(1+n/5); // 0.40 for a new player, ~0.25 after 5 matches, ~0.16 after 20
+function startLevel(k){const o=(S.startLevels||{})[k];return o!=null&&o!==''?+o:(START_LEVELS[k]??DEFAULT_LEVEL)}
+let _rc=null,_rcKey='';
+function ratings(){const ck=JSON.stringify([S.sessions.length,S.startLevels,S.sessions.map(x=>x.id+x.result+x.date+(x.time||'')+scoreStr(x)+x.partner+(x.opps||[]).join())]);if(_rc&&_rcKey===ck)return _rc;
+ const R={},N={},H={},pre={};const get=k=>{if(R[k]==null){R[k]=startLevel(k);N[k]=0;H[k]=[{date:null,r:R[k]}]}return R[k]};
+ const asc=[...allM()].sort((a,b)=>a.date.localeCompare(b.date)||(a.time||'').localeCompare(b.time||'')||(a.ts||0)-(b.ts||0));
+ asc.forEach(m=>{const A=['me',key(m.partner)].filter(Boolean),B=m.opps.map(key).filter(Boolean);if(A.length<1||B.length<1)return;
+  pre[m.id]={};[...A,...B].forEach(k=>pre[m.id][k]=get(k));
+  let sc=m.result==='W'?1:m.result==='L'?0:m.result==='X'?.5:null;
+  if(m.result==='U'){const g=gamesOf(m);sc=g[0]+g[1]?g[0]/(g[0]+g[1]):null} // unfinished: use share of games won
+  if(sc==null)return;const av=t=>t.reduce((a,k)=>a+R[k],0)/t.length;const E=1/(1+Math.pow(10,-(av(A)-av(B))/RSCALE));
+  const upd=(k,sgn)=>{R[k]=Math.min(7,Math.max(0,R[k]+sgn*kFac(N[k])*(sc-E)));N[k]++;H[k].push({date:m.date,r:R[k]})};A.forEach(k=>upd(k,1));B.forEach(k=>upd(k,-1))});
+ _rcKey=ck;_rc={R,N,H,pre};return _rc}
+const rt=k=>{const x=ratings();return x.R[k]??startLevel(k)};
+function spark(h,w=80,hh=22){if(!h||h.length<2)return'';const v=h.map(x=>x.r),mn=Math.min(...v)-.05,mx=Math.max(...v)+.05;const pts=v.map((y,i)=>`${(i/(v.length-1)*w).toFixed(1)},${(hh-(y-mn)/(mx-mn)*hh).toFixed(1)}`).join(' ');const up=v[v.length-1]>=v[0];return`<svg width="${w}" height="${hh}" style="vertical-align:middle"><polyline points="${pts}" fill="none" stroke="${up?'#30d158':'#ff453a'}" stroke-width="1.5" stroke-linejoin="round"/></svg>`}
+function trendTxt(h){if(!h||h.length<2)return'<span class="mut">—</span>';const d=h[h.length-1].r-h[0].r;return d>=0.005?`<span style="color:var(--win)">▲${d.toFixed(2)}</span>`:d<=-0.005?`<span style="color:var(--loss)">▼${(-d).toFixed(2)}</span>`:'<span class="mut">▬</span>'}
+function suggestGT(partner,opps){const ks=[key(partner),...opps.map(key)].filter(Boolean);if(!ks.length)return'I';const a=ks.reduce((x,k)=>x+rt(k),0)/ks.length;return a>=4.5?'A':'I'}
+const gtChip=()=>`<div class="seg" style="margin-bottom:16px">${[['all','All games'],['A','Advanced'],['I','Intermediate']].map(([c,t])=>`<button class="${gtF===c?'on':''}" onclick="gtF='${c}';render()">${t}</button>`).join('')}</div>`;
 // canonical display name for a key
 function allNames(){const m={};[...S.sessions,...(S.upcoming||[])].forEach(s=>[s.partner,...(s.opps||[])].forEach(n=>{if(norm(n))m[key(n)]=m[key(n)]||norm(n)}));return m}
 const P=n=>n?`<span class="p" onclick="event.stopPropagation();openPlayer('${esc(key(n)).replace(/'/g,"\\'")}')">${esc(norm(n))}</span>`:'—';
@@ -73,7 +100,7 @@ const TABS=[['log','➕','Log'],['cal','📅','Calendar'],['stats','📊','Stats
 function renderNav(){$('#nav').innerHTML=TABS.map(t=>`<button class="${tab===t[0]?'on':''}" onclick="go('${t[0]}')"><svg viewBox="0 0 24 24">${ICONS[t[0]]}</svg>${t[2]}</button>`).join('')}
 let charts=[];function killCharts(){charts.forEach(c=>c.destroy());charts=[]}
 function go(t){tab=t;closeModal();render();scrollTo(0,0)}
-function render(){killCharts();renderNav();renderDue();$('#hdrinfo').textContent=S.sessions.length+' sessions';({log:vLog,cal:vCal,stats:vStats,match:vMatch,hist:vHist,set:vSet})[tab]();
+function render(){killCharts();renderNav();renderDue();$('#hdrinfo').textContent=S.sessions.length+' sessions';({log:vLog,cal:vCal,stats:vStats,match:vMatch,hist:vHist,set:vSet})[tab]();if(tab==='stats'||tab==='match')$('#app').insertAdjacentHTML('afterbegin',gtChip());
  $('#names').innerHTML=Object.values(allNames()).sort().map(n=>`<option value="${esc(n)}">`).join('')}
 
 // ---------- LOG ----------
@@ -84,27 +111,30 @@ function RS(o){return o.t?`${o.w}-${o.l}-${o.t}`:`${o.w}-${o.l}`}
 const PCT=o=>o.d?Math.round(o.w/o.d*100)+'%':'—';
 function setDone(a,b){a=+a;b=+b;const m=Math.max(a,b);return m>=6&&(Math.abs(a-b)>=2||m===7)}
 function resBtns(){return [['W','Won'],['L','Lost'],['X','Tie'],['U','Unfinished']].map(([c,t])=>`<button style="font-size:13px" class="${F.result===c?'on':''}" onclick="F.result='${c}';F.resManual=1;$('#resseg').innerHTML=resBtns()">${t}</button>`).join('')}
+function gtBtns(){return['A','I'].map(c=>`<button class="${F.gtype===c?'on':''}" onclick="F.gtype='${c}';F.gtManual=1;$('#gtseg').innerHTML=gtBtns()">${GT[c]}</button>`).join('')}
+function autoGT(){if(F.gtManual)return;F.gtype=suggestGT(F.partner,F.opps);const e=$('#gtseg');if(e)e.innerHTML=gtBtns()}
 function suggestRes(){if(F.resManual)return;const st=F.sets.filter(x=>x[0]!==''||x[1]!=='');if(!st.length)return;const last=st[st.length-1];if(!setDone(last[0],last[1])){F.result='U'}else{let w=0,l=0;st.forEach(x=>{+x[0]>+x[1]?w++:l++});F.result=w>l?'W':l>w?'L':'X'}const e=$('#resseg');if(e)e.innerHTML=resBtns()}
 const opp=x=>x==='L'?'R':'L';const SD=x=>x?` <small class="tag" style="background:#2c2c2e;color:#c6f432">${x}</small>`:'';
 const sidesOf=s=>s.sides||{};
 function sideFor(s,k){const d=sidesOf(s);if(key(s.partner)===k)return d.partner;if(key(s.opps[0])===k)return d.o1;if(key(s.opps[1])===k)return d.o2}
 const SIDE_DEFAULTS={griff:'L',juan:'R',steve:'L',russ:'L',miles:'L',flor:'L',ronnie:'L',kirby:'L',robbie:'L',simon:'L',adam:'L'}; // my side with that partner
-function autoSide(){const k=key(F.partner);if(!k)return;if(USUAL_SIDE[k]){F.sides.partner=USUAL_SIDE[k];F.sides.me=opp(USUAL_SIDE[k]);vLog();return}const last=matches().find(s=>key(s.partner)===k&&s.id!==editId&&sidesOf(s).me);const me=last?sidesOf(last).me:SIDE_DEFAULTS[k];if(!me)return;F.sides.me=me;F.sides.partner=last&&sidesOf(last).partner||opp(me);vLog()}
+function autoSide(){const k=key(F.partner);if(!k)return;if(USUAL_SIDE[k]){F.sides.partner=USUAL_SIDE[k];F.sides.me=opp(USUAL_SIDE[k]);vLog();return}const last=allM().find(s=>key(s.partner)===k&&s.id!==editId&&sidesOf(s).me);const me=last?sidesOf(last).me:(SIDE_DEFAULTS[k]||(isLefty(k)?'L':null));if(!me)return;F.sides.me=me;F.sides.partner=last&&sidesOf(last).partner||opp(me);vLog()}
 const USUAL_SIDE={ronnie:'R',griff:'R'}; // fixed usual side for any role
-function lastSide(k){if(USUAL_SIDE[k])return USUAL_SIDE[k];const m=matches().find(s=>s.id!==editId&&sideFor(s,k));return m?sideFor(m,k):null}
+function lastSide(k){if(USUAL_SIDE[k])return USUAL_SIDE[k];const m=allM().find(s=>s.id!==editId&&sideFor(s,k));return m?sideFor(m,k):(isLefty(k)?'R':null)}
 function autoOpp(i){const k=key(F.opps[i]);if(!k)return;const sd=lastSide(k);if(!sd)return;const me='o'+(i+1),ot='o'+(2-i);F.sides[me]=sd;const ok=key(F.opps[1-i]),os=ok&&lastSide(ok);F.sides[ot]=os&&os!==sd?os:opp(sd);vLog()}
 function setSide(w,v){F.sides[w]=v;if(w==='me')F.sides.partner=opp(v);if(w==='o1')F.sides.o2=opp(v);vLog()}
 const sideSeg=(w,l)=>`<div class="row" style="align-items:center;margin-top:4px"><span class="mut" style="flex:0 0 90px">${l}</span><div class="seg">${['L','R'].map(v=>`<button class="${F.sides[w]===v?'on':''}" onclick="setSide('${w}','${v}')">${v==='L'?'Left':'Right'}</button>`).join('')}</div></div>`;
 function vLog(){
- if(!F)F=blank();const f=F,up=f.type==='upcoming',m=f.type==='match'||up;
+ if(!F)F=blank();if(!F.gtype)F.gtype=suggestGT(F.partner,F.opps);const f=F,up=f.type==='upcoming',m=f.type==='match'||up;
  $('#app').innerHTML=`${upListHTML()}<div class="card"><h2>${f.upEdit?'Edit upcoming match':f.upId?'How did it go? Enter score & result':editId?'Edit session':'New session'}</h2>
  <div class="seg">${(f.upId?['match']:f.upEdit?['upcoming']:['match','training','upcoming']).map(t=>`<button class="${f.type===t?'on':''}" onclick="F.type='${t}';vLog()">${t==='match'?'🎾 Match':t==='training'?'🏋️ Training':'📅 Upcoming'}</button>`).join('')}</div>
  <label>Date</label><input type="date" value="${f.date}" onchange="F.date=this.value"><label>Start time</label><input type="time" value="${F.time||''}" onchange="F.time=this.value">
  <label>Duration</label><div class="seg">${[60,90,120].map(v=>`<button class="${f.mins==v?'on':''}" onclick="F.mins=${v};vLog()">${v/60}h</button>`).join('')}</div>
  <input type="number" min="1" style="margin-top:6px" value="${f.mins}" oninput="F.mins=+this.value;upd()" placeholder="minutes">
  <label>Intensity</label><div class="seg">${['Easy','Normal','Hard'].map(v=>`<button class="${f.int===v?'on':''}" onclick="F.int='${v}';vLog()">${v}</button>`).join('')}</div>
- ${m?`<label>Partner</label><input list="names" value="${esc(f.partner)}" oninput="F.partner=this.value" onchange="F.partner=this.value;autoSide()" placeholder="Partner name">
- <label>Opponents</label><div class="row"><input list="names" value="${esc(f.opps[0])}" oninput="F.opps[0]=this.value" onchange="F.opps[0]=this.value;autoOpp(0)" placeholder="Opponent 1"><input list="names" value="${esc(f.opps[1])}" oninput="F.opps[1]=this.value" onchange="F.opps[1]=this.value;autoOpp(1)" placeholder="Opponent 2"></div>
+ ${m?`<label>Partner</label><input list="names" value="${esc(f.partner)}" oninput="F.partner=this.value" onchange="F.partner=this.value;autoGT();autoSide()" placeholder="Partner name">
+ <label>Opponents</label><div class="row"><input list="names" value="${esc(f.opps[0])}" oninput="F.opps[0]=this.value" onchange="F.opps[0]=this.value;autoGT();autoOpp(0)" placeholder="Opponent 1"><input list="names" value="${esc(f.opps[1])}" oninput="F.opps[1]=this.value" onchange="F.opps[1]=this.value;autoGT();autoOpp(1)" placeholder="Opponent 2"></div>
+ <label>Game type</label><div class="seg" id="gtseg">${gtBtns()}</div><div class="mut" style="margin-top:4px">Suggested from the other 3 players' avg rating (≥4.5 → Advanced); tap to override.</div>
  <label>Court sides</label>${sideSeg('me','Me')}${sideSeg('partner','Partner')}${sideSeg('o1','Opponent 1')}${sideSeg('o2','Opponent 2')}
  ${up?'':`<label>Score</label><div class="sets"><span></span><small class="mut">Us</small><small class="mut">Them</small>${[0,1,2].map(i=>`<span class="mut">Set ${i+1}</span><input type="number" min="0" value="${f.sets[i][0]}" oninput="F.sets[${i}][0]=this.value" onchange="suggestRes()"><input type="number" min="0" value="${f.sets[i][1]}" oninput="F.sets[${i}][1]=this.value" onchange="suggestRes()">`).join('')}</div>
  <label>Result</label><div class="seg" id="resseg">${resBtns()}</div><div class="mut" style="margin-top:4px">Auto-suggested from the score; tap to override.</div>`}
@@ -116,18 +146,18 @@ function vLog(){
  ${editId||f.upEdit||f.upId?`<button class="btn sec" onclick="editId=null;F=blank();vLog()">${f.upId?'Not now':'Cancel edit'}</button>`:''}</div>`;upd()}
 function upd(){const e=$('#calest');if(e)e.textContent=cals(F.type==='upcoming'?'match':F.type,F.mins||0,F.int)+' kcal'}
 function saveForm(){const f=F;if(!f.date||!(f.mins>0))return alert('Date and duration required');
- if(f.type==='upcoming'){const nm=allNames();const c=n=>nm[key(n)]||norm(n);const u={id:f.upEdit||uid(),date:f.date,time:f.time||'',mins:+f.mins,int:f.int,club:norm(f.club),notes:f.notes.trim(),partner:c(f.partner),opps:f.opps.map(c),sides:{...f.sides}};
+ if(f.type==='upcoming'){const nm=allNames();const c=n=>nm[key(n)]||norm(n);const u={id:f.upEdit||uid(),date:f.date,time:f.time||'',mins:+f.mins,int:f.int,club:norm(f.club),notes:f.notes.trim(),partner:c(f.partner),opps:f.opps.map(c),sides:{...f.sides},gtype:f.gtype||suggestGT(f.partner,f.opps)};
   S.upcoming=S.upcoming.filter(x=>x.id!==u.id);S.upcoming.push(u);save();editId=null;F=blank();selDay=u.date;go('log');return}
  if(f.upId)S.upcoming=S.upcoming.filter(x=>x.id!==f.upId);
  const s={id:editId||f.upId||uid(),ts:Date.now(),type:f.type,date:f.date,time:f.time||'',mins:+f.mins,int:f.int,club:norm(f.club),notes:f.notes.trim()};if(+f.kcal>0)s.kcal=+f.kcal;if(+f.hr>0)s.hr=+f.hr;
- if(f.type==='match'){const nm=allNames();const c=n=>nm[key(n)]||norm(n);s.partner=c(f.partner);s.opps=f.opps.map(c);s.sets=f.sets;s.result=f.result;s.sides={...f.sides}}
+ if(f.type==='match'){const nm=allNames();const c=n=>nm[key(n)]||norm(n);s.partner=c(f.partner);s.opps=f.opps.map(c);s.sets=f.sets;s.result=f.result;s.sides={...f.sides};s.gtype=f.gtype||suggestGT(s.partner,s.opps)}
  const old=S.sessions.find(x=>x.id===editId);if(old){s.demo=old.demo;s.ts=old.ts}
  S.sessions=S.sessions.filter(x=>x.id!==s.id);S.sessions.push(s);save();editId=null;F=blank();go('hist')}
-function editS(id){const s=S.sessions.find(x=>x.id===id);editId=id;F=Object.assign(blank(),JSON.parse(JSON.stringify(s)));if(!F.sets)F.sets=[['',''],['',''],['','']];if(!F.opps)F.opps=['',''];if(!F.sides)F.sides=blank().sides;go('log')}
+function editS(id){const s=S.sessions.find(x=>x.id===id);editId=id;F=Object.assign(blank(),JSON.parse(JSON.stringify(s)));if(F.gtype)F.gtManual=1;if(!F.sets)F.sets=[['',''],['',''],['','']];if(!F.opps)F.opps=['',''];if(!F.sides)F.sides=blank().sides;go('log')}
 function delS(id){if(!confirm('Delete this session?'))return;if(/^real\d$/.test(id)){S.deletedSeeds=S.deletedSeeds||[];if(!S.deletedSeeds.includes(id))S.deletedSeeds.push(id)}S.sessions=S.sessions.filter(x=>x.id!==id);save();if(!$('#modal').classList.contains('hidden')){if(curPlayer)openPlayer(curPlayer);else closeModal()}render()}
 
 function itemHTML(s,showDate=true){const c=sessCal(s);
- if(s.type==='match')return`<div class="item"><div class="top"><div><span class="tag ${s.result}">${RES[s.result]||s.result}</span> <b>${scoreStr(s)||'—'}</b></div><div class="acts"><button onclick="editS('${s.id}')">Edit</button><button onclick="delS('${s.id}')">Del</button></div></div>
+ if(s.type==='match')return`<div class="item"><div class="top"><div><span class="tag ${s.result}">${RES[s.result]||s.result}</span> ${s.gtype?`<span class="tag" style="background:${s.gtype==='A'?'rgba(191,90,242,.18);color:#bf5af2':'rgba(100,210,255,.15);color:#64d2ff'}">${s.gtype==='A'?'ADV':'INT'}</span>`:''} <b>${scoreStr(s)||'—'}</b></div><div class="acts"><button onclick="editS('${s.id}')">Edit</button><button onclick="delS('${s.id}')">Del</button></div></div>
  <div>Me${SD(sidesOf(s).me)} w/ ${P(s.partner)}${SD(sidesOf(s).partner)} vs ${P(s.opps[0])}${SD(sidesOf(s).o1)} & ${P(s.opps[1])}${SD(sidesOf(s).o2)}</div><div class="mut">${[showDate?fmtD(s.date)+TM(s):(s.time?s.time+' ('+bucket(s.time)+')':''),s.mins+' min'].filter(Boolean).join(' · ')} · ${s.int} · ${c} kcal${s.kcal?' (manual)':''}${s.hr?' · ♥ '+s.hr:''}${s.club?' · '+esc(s.club):''}${s.demo?' · demo':''}</div>${s.notes?`<div class="mut">📝 ${esc(s.notes)}</div>`:''}</div>`;
  return`<div class="item"><div class="top"><div><span class="tag T">TRAINING</span></div><div class="acts"><button onclick="editS('${s.id}')">Edit</button><button onclick="delS('${s.id}')">Del</button></div></div><div class="mut">${[showDate?fmtD(s.date)+TM(s):(s.time?s.time+' ('+bucket(s.time)+')':''),s.mins+' min'].filter(Boolean).join(' · ')} · ${s.int} · ${c} kcal${s.kcal?' (manual)':''}${s.hr?' · ♥ '+s.hr:''}${s.club?' · '+esc(s.club):''}${s.demo?' · demo':''}</div>${s.notes?`<div class="mut">📝 ${esc(s.notes)}</div>`:''}</div>`}
 
@@ -135,10 +165,10 @@ function itemHTML(s,showDate=true){const c=sessCal(s);
 const upEnd=u=>{const d=parse(u.date);const[h,mi]=(u.time||'23:59').split(':').map(Number);d.setHours(h,mi+(+u.mins||0));return d};
 const upSorted=()=>[...S.upcoming].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
 const dueList=()=>upSorted().filter(u=>upEnd(u)<=new Date());
-function upItem(u,showDate=true){const d=sidesOf(u),due=upEnd(u)<=new Date();return`<div class="item"><div class="top"><div><span class="tag" style="border:1.5px solid var(--acc);color:var(--acc)">${due?'PLAYED?':'UPCOMING'}</span> <b>${showDate?fmtD(u.date):''}${u.time?' '+u.time:''}</b></div><div class="acts">${due?`<button style="color:var(--acc)" onclick="completeUp('${u.id}')">Log result</button>`:''}<button onclick="editUp('${u.id}')">Edit</button><button onclick="cancelUp('${u.id}')">Cancel</button></div></div>
+function upItem(u,showDate=true){const d=sidesOf(u),due=upEnd(u)<=new Date();return`<div class="item"><div class="top"><div><span class="tag" style="border:1.5px solid var(--acc);color:var(--acc)">${due?'PLAYED?':'UPCOMING'}</span>${u.gtype?` <span class="mut" style="font-size:12px">${GT[u.gtype]}</span>`:''} <b>${showDate?fmtD(u.date):''}${u.time?' '+u.time:''}</b></div><div class="acts">${due?`<button style="color:var(--acc)" onclick="completeUp('${u.id}')">Log result</button>`:''}<button onclick="editUp('${u.id}')">Edit</button><button onclick="cancelUp('${u.id}')">Cancel</button></div></div>
  <div>Me${SD(d.me)} w/ ${P(u.partner)}${SD(d.partner)} vs ${P(u.opps[0])}${SD(d.o1)} & ${P(u.opps[1])}${SD(d.o2)}</div><div class="mut">${u.mins} min${u.club?' · '+esc(u.club):''}</div></div>`}
 function upListHTML(){const l=upSorted();return l.length?`<div class="card"><h2>📅 Upcoming</h2>${l.map(u=>upItem(u)).join('')}</div>`:''}
-function upToF(u){return Object.assign(blank(),JSON.parse(JSON.stringify(u)),{sets:[['',''],['',''],['','']],result:'W'})}
+function upToF(u){return Object.assign(blank(),JSON.parse(JSON.stringify(u)),{gtManual:u.gtype?1:0,sets:[['',''],['',''],['','']],result:'W'})}
 function editUp(id){const u=S.upcoming.find(x=>x.id===id);editId=null;F=upToF(u);F.type='upcoming';F.upEdit=id;go('log')}
 function completeUp(id){const u=S.upcoming.find(x=>x.id===id);editId=null;F=upToF(u);F.type='match';F.upId=id;go('log')}
 function cancelUp(id){if(!confirm('Cancel this upcoming match?'))return;if(id==='seedup1'){S.deletedSeeds=S.deletedSeeds||[];S.deletedSeeds.push(id)}S.upcoming=S.upcoming.filter(x=>x.id!==id);save();render()}
@@ -165,7 +195,7 @@ function vCal(){const y=calM.getFullYear(),mo=calM.getMonth();const by={};S.sess
 let calG='week',calOff=0,trG='month';
 function perKey(d,g){const y=d.getFullYear(),m=d.getMonth();return g==='week'?iso(weekStart(d)):g==='month'?y+'-'+pad(m+1):g==='quarter'?y+'-Q'+(Math.floor(m/3)+1):''+y}
 function perList(g,n){const out=[],d=new Date();d.setHours(0,0,0,0);for(let i=n-1;i>=0;i--){const x=new Date(d);if(g==='week')x.setDate(x.getDate()-7*i);else if(g==='month'){x.setDate(1);x.setMonth(x.getMonth()-i)}else if(g==='quarter'){x.setDate(1);x.setMonth(x.getMonth()-3*i)}else x.setFullYear(x.getFullYear()-i);out.push(perKey(x,g))}return out}
-function perAgg(list){const ms=list.filter(s=>s.type==='match'),o=grpStats(ms);const pct=f=>{const q=grpStats(ms.filter(f));return q.d?Math.round(q.p*100):null};const g=ms.reduce((a,s)=>{const x=gamesOf(s);return[a[0]+x[0],a[1]+x[1]]},[0,0]);
+function perAgg(list){const ms=list.filter(s=>s.type==='match'&&(gtF==='all'||s.gtype===gtF)),o=grpStats(ms);const pct=f=>{const q=grpStats(ms.filter(f));return q.d?Math.round(q.p*100):null};const g=ms.reduce((a,s)=>{const x=gamesOf(s);return[a[0]+x[0],a[1]+x[1]]},[0,0]);
  return{n:ms.length,w:o.w,l:o.l,win:o.d?Math.round(o.p*100):null,gp:g[0]+g[1]?Math.round(g[0]/(g[0]+g[1])*100):null,hrs:+(list.reduce((a,s)=>a+s.mins,0)/60).toFixed(1),cal:list.reduce((a,s)=>a+sessCal(s),0),L:pct(s=>sidesOf(s).me==='L'),R:pct(s=>sidesOf(s).me==='R'),Mo:pct(s=>bucket(s.time)==='Morning'),Af:pct(s=>bucket(s.time)==='Afternoon'),Ev:pct(s=>bucket(s.time)==='Evening')}}
 const arrow=(a,b,u='')=>a==null||b==null?'':a>b?` <span style="color:var(--win)">▲${Math.round(a-b)}${u}</span>`:a<b?` <span style="color:var(--loss)">▼${Math.round(b-a)}${u}</span>`:' <span class="mut">▬</span>';
 function renderTrends(){const g=trG,n={week:12,month:12,quarter:8,year:5}[g],keys=perList(g,n),by={};S.sessions.forEach(s=>{const k=perKey(parse(s.date),g);(by[k]=by[k]||[]).push(s)});const A=keys.map(k=>perAgg(by[k]||[]));
@@ -185,7 +215,7 @@ function vStats(){const ms=matches(),w=ms.filter(s=>s.result==='W').length;const
  const totC=S.sessions.reduce((a,s)=>a+sessCal(s),0);
  $('#app').innerHTML=`<div class="kpis"><div class="kpi"><small>Win rate</small><b>${PCT(grpStats(ms))}</b><small>${RS(grpStats(ms))}</small></div><div class="kpi"><small>Hours this month</small><b>${hrsM.toFixed(1)}</b></div><div class="kpi"><small>Week streak</small><b>${st}</b></div>${['L','R'].map(x=>{const o=grpStats(ms.filter(s=>sidesOf(s).me===x));return`<div class="kpi"><small>Me on ${x==='L'?'Left':'Right'}</small><b>${PCT(o)}</b><small>${RS(o)}</small></div>`}).join('')}<div class="kpi"><small>Total calories</small><b>${totC.toLocaleString()}</b></div></div>
  <div class="card"><h2>Last 8 matches</h2>${ms.slice(0,8).reverse().map(s=>`<span class="pill ${s.result}">${s.result}</span>`).join('')||'<span class="mut">No matches</span>'}</div>
- ${bestHTML(ms)}
+ ${typeSideHTML()}${leftyHTML(ms)}${bestHTML(ms)}
  <div class="card" id="trcard"><h2>📈 Trends</h2><div class="seg">${['week','month','quarter','year'].map(g=>`<button class="${trG===g?'on':''}" onclick="trG='${g}';render()">${g[0].toUpperCase()+g.slice(1)}</button>`).join('')}</div><div id="insights" style="margin:10px 0"></div>${['Win % & games won %','Matches played','Hours & calories','Win % by side','Win % by time of day'].map((t,i)=>`<div class="mut" style="margin-top:10px">${t}</div><canvas id="tr${i}" height="170"></canvas>`).join('')}</div>
  <div class="card"><h2>🏆 Season summaries (quarters)</h2><div id="seasons"></div></div>
  <div class="card" id="calcard"><h2>🔥 Calories burned</h2><div class="seg">${['day','week','month','year'].map(g=>`<button class="${calG===g?'on':''}" onclick="calG='${g}';calOff=0;render()">${g[0].toUpperCase()+g.slice(1)}</button>`).join('')}</div>
@@ -208,6 +238,11 @@ function vStats(){const ms=matches(),w=ms.filter(s=>s.result==='W').length;const
  const asc=[...ms].reverse();let ww=0,dd=0;const wl=[],wv=[];asc.forEach((s,i)=>{if(s.result==='W')ww++;if(s.result==='W'||s.result==='L')dd++;wl.push(parse(s.date).toLocaleDateString(undefined,{month:'short',day:'numeric'}));wv.push(dd?Math.round(ww/dd*100):null)});
  charts.push(new Chart($('#wr'),{type:'line',data:{labels:wl,datasets:[{data:wv,borderColor:'#c6f432',tension:.35}]},options:{plugins:{legend:{display:false}},scales:{y:{min:0,max:100}}}}))}
 
+function typeSideHTML(){const a=allM();const c=(t,sd)=>grpStats(a.filter(s=>s.gtype===t&&(!sd||sidesOf(s).me===sd)));
+ return`<div class="card"><h2>Record by type × my side</h2><table><tr><th></th><th>Left</th><th>Right</th><th>All</th></tr>${['A','I'].map(t=>`<tr><td>${GT[t]}</td>${['L','R',null].map(sd=>{const o=c(t,sd);return`<td>${o.n?`${RS(o)} <span class="mut">${PCT(o)}</span>`:'<span class="mut">—</span>'}</td>`}).join('')}</tr>`).join('')}</table>
+ <div class="mut" style="margin-top:6px">${['A','I'].map(t=>{const l=a.filter(s=>s.gtype===t),L=l.filter(s=>sidesOf(s).me==='L').length,R=l.filter(s=>sidesOf(s).me==='R').length;return l.length?`${GT[t]}: I play ${L>=R?'left':'right'} ${Math.round(Math.max(L,R)/(L+R||1)*100)}%`:''}).filter(Boolean).join(' · ')}</div></div>`}
+function leftyHTML(ms){const vsL=grpStats(ms.filter(s=>s.opps.some(o=>isLefty(key(o))))),wL=grpStats(ms.filter(s=>isLefty(key(s.partner))));
+ const ln=Object.values(allNames()).filter(n=>isLefty(key(n)));return`<div class="card"><h2>🫲 Lefties</h2><div class="kpis"><div class="kpi"><small>Vs pairs with a lefty</small><b>${PCT(vsL)}</b><small>${RS(vsL)}</small></div><div class="kpi"><small>Partnering a lefty</small><b>${PCT(wL)}</b><small>${RS(wL)}</small></div></div><div class="mut" style="margin-top:8px">Lefties: ${ln.map(esc).join(', ')||'none yet'} (set on player pages)</div></div>`}
 function grpStats(list){const w=list.filter(s=>s.result==='W').length,l=list.filter(s=>s.result==='L').length,d=w+l,g=list.reduce((a,s)=>{const x=gamesOf(s);return[a[0]+x[0],a[1]+x[1]]},[0,0]);return{n:list.length,w,l,t:list.length-d,d,p:d?w/d:-1,gp:g[0]+g[1]?Math.round(g[0]/(g[0]+g[1])*100)+'%':'—'}}
 function bestHTML(ms){const B=['Morning','Afternoon','Evening'].map(b=>[b,grpStats(ms.filter(s=>bucket(s.time)===b))]);const best=B.filter(x=>x[1].n).sort((a,b)=>b[1].p-a[1].p)[0];
  const D=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i)=>[d,grpStats(ms.filter(s=>(parse(s.date).getDay()+6)%7===i))]);
@@ -219,11 +254,27 @@ function playerRecs(){const R={};const add=(n,side,res)=>{const k=key(n);if(!k)r
  matches().forEach(s=>{const d=sidesOf(s),fl={W:'L',L:'W'}[s.result]||s.result;add(s.partner,d.partner,s.result);add(s.opps[0],d.o1,fl);add(s.opps[1],d.o2,fl)});return R}
 const wl=a=>a[2]?`${a[0]}-${a[1]}-${a[2]}`:`${a[0]}-${a[1]}`;
 function rec(list){const o=grpStats(list);return[o.w,o.l,o]}
-function vMatch(){const ms=matches(),nm=allNames();if(mSub==='matches'||mSub==='bydate'){const fk=key(mF),l=fk?ms.filter(s=>key(s.partner)===fk||s.opps.map(key).includes(fk)):ms;
+let rSort='r';
+// ---------- CROSS-COURT ----------
+function crossOpp(s){const d=sidesOf(s);if(!d.me)return null;if(d.o1===d.me)return key(s.opps[0]);if(d.o2===d.me)return key(s.opps[1]);return null}
+function ccStats(l){const o=grpStats(l);let sw=0,sl=0,gw=0,gl=0;l.forEach(s=>{(s.sets||[]).forEach(x=>{if(x[0]===''&&x[1]==='')return;const a=+x[0]||0,b=+x[1]||0;gw+=a;gl+=b;if(setDone(a,b)){a>b?sw++:sl++}})});return Object.assign(o,{sw,sl,gw,gl,diff:gw-gl})}
+const sgn=n=>n>0?'+'+n:''+n;
+function ccSplit(l){return[['L','My left'],['R','My right']].map(([x,t])=>{const q=ccStats(l.filter(s=>sidesOf(s).me===x));return q.n?`${t}: ${RS(q)} (${sgn(q.diff)})`:''}).concat(['A','I'].map(x=>{const q=ccStats(l.filter(s=>s.gtype===x));return q.n?`${GT[x]}: ${RS(q)} (${sgn(q.diff)})`:''})).filter(Boolean).join(' · ')}
+function ccRowHTML(name,o,split){return`<div class="item"><div class="top"><div>${name}</div><b style="color:${o.diff>0?'var(--win)':o.diff<0?'var(--loss)':'var(--mut)'}">${sgn(o.diff)}</b></div><div style="font-size:14px">${o.n} match${o.n===1?'':'es'} · ${RS(o)} · sets ${o.sw}-${o.sl} · games ${o.gw}-${o.gl}</div><div class="mut">${split}</div></div>`}
+function vMatch(){const ms=matches(),nm=allNames();if(mSub==='cross'){const g={};ms.forEach(s=>{const k=crossOpp(s);if(k)(g[k]=g[k]||[]).push(s)});
+ const rows=Object.entries(g).map(([k,l])=>({k,l,o:ccStats(l)})).sort((a,b)=>b.o.diff-a.o.diff||b.o.n-a.o.n);const best=rows[0],worst=rows[rows.length-1];
+ const hl=(t,x,c)=>x?`<div class="kpi" style="border:1px solid ${c}"><small>${t}</small><b style="font-size:20px">${P(nm[x.k]||x.k)}</b><small>${sgn(x.o.diff)} games · ${RS(x.o)}</small></div>`:'';
+ $('#app').innerHTML=`<div class="card">${segM()}<div class="mut" style="margin:12px 0 8px">Cross-court = the opponent on the same side as me (I'm left → their left player).</div>
+ ${rows.length?`<div class="kpis">${hl('💪 Dominates',best,'var(--win)')}${rows.length>1?hl('😬 Struggles vs',worst,'var(--loss)'):''}</div>`:''}
+ ${rows.map(x=>ccRowHTML(P(nm[x.k]||x.k),x.o,ccSplit(x.l))).join('')||'<div class="mut">No matches with side data yet.</div>'}</div>`;return}if(mSub==='ratings'){const x=ratings();const ks=[...new Set(['me',...Object.keys(nm),...Object.keys(x.R)])];
+ const rows=ks.map(k=>({k,n:k==='me'?'Me':(nm[k]||k),r:rt(k),c:x.N[k]||0,h:x.H[k]})).sort((a,b)=>rSort==='n'?a.n.localeCompare(b.n):rSort==='c'?b.c-a.c:b.r-a.r);
+ const th=(c,t)=>`<th style="cursor:pointer;${rSort===c?'color:var(--acc)':''}" onclick="rSort='${c}';render()">${t}${rSort===c?' ↓':''}</th>`;
+ $('#app').innerHTML=`<div class="card">${segM()}<table style="margin-top:12px"><tr>${th('n','Player')}${th('r','Rating')}<th>Trend</th>${th('c','#')}</tr>${rows.map(o=>`<tr${o.k==='me'?' style="background:rgba(198,244,50,.06)"':''}><td>${o.k==='me'?'<b>Me</b>':P(o.n)}${isLefty(o.k)?' <small style="color:#ff9f0a">L</small>':''}</td><td><b>${o.r.toFixed(2)}</b></td><td>${spark(o.h,60,18)} ${trendTxt(o.h)}</td><td class="mut">${o.c}</td></tr>`).join('')}</table>
+ <div class="mut" style="margin-top:8px">0–7 scale. Replayed from start levels over all matches (type filter ignored). Team-average Elo: win prob = 1/(1+10^(−Δ/1.5)); K = 0.1 + 0.3/(1+n/5) shrinks with matches played. Tie = 0.5; Unfinished = share of games won. Unknown players start at 3.5. Edit start levels on player pages (yours in Settings).</div></div>`;return}if(mSub==='matches'||mSub==='bydate'){const fk=key(mF),l=fk?ms.filter(s=>key(s.partner)===fk||s.opps.map(key).includes(fk)):ms;
  const nmS=(n,sd)=>`<span style="white-space:nowrap">${esc(norm(n))||'—'}${SD(sd)}</span>`;
- $('#app').innerHTML=`<div class="card">${segM()}<div class="row" style="margin-top:12px;align-items:center"><input list="names" placeholder="Filter by player" value="${esc(mF)}" onchange="mF=this.value;vMatch()">${mF?`<button class="btn sec" style="margin:0;flex:0 0 72px;padding:12px 8px" onclick="mF='';vMatch()">Clear</button>`:''}</div>
+ $('#app').innerHTML=`<div class="card">${segM()}<div class="row" style="margin-top:12px;align-items:center"><input list="names" placeholder="Filter by player" value="${esc(mF)}" onchange="mF=this.value;render()">${mF?`<button class="btn sec" style="margin:0;flex:0 0 72px;padding:12px 8px" onclick="mF='';render()">Clear</button>`:''}</div>
  <div class="mut" style="margin:8px 0 4px">${l.length} match${l.length===1?'':'es'}${fk?' with '+esc(nm[fk]||mF):''}${fk&&l.length?' · '+RS(grpStats(l)):''}</div>
- ${mSub==='bydate'?[...new Set(l.map(s=>s.date))].map(dt=>{const g=l.filter(s=>s.date===dt);return`<div style="margin-top:16px"><div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:17px">${fmtD(dt)}</b><span class="mut">${RS(grpStats(g))}</span></div>${g.map(s=>itemHTML(s,false)).join('')}</div>`}).join('')||'<div class="mut" style="margin-top:8px">No matches.</div>':l.map(s=>{const d=sidesOf(s);return`<div class="item mrow" style="cursor:pointer" onclick="openMatch('${s.id}')"><div class="top"><div><b>${parse(s.date).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}</b> <span class="mut">${s.time?s.time+' · '+bucket(s.time):''}</span></div><span class="tag ${s.result}">${RES[s.result]||s.result}</span></div>
+ ${mSub==='bydate'?[...new Set(l.map(s=>s.date))].map(dt=>{const g=l.filter(s=>s.date===dt);return`<div style="margin-top:16px"><div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:17px">${fmtD(dt)}</b><span class="mut">${RS(grpStats(g))}</span></div>${g.map(s=>itemHTML(s,false)).join('')}</div>`}).join('')||'<div class="mut" style="margin-top:8px">No matches.</div>':l.map(s=>{const d=sidesOf(s);return`<div class="item mrow" style="cursor:pointer" onclick="openMatch('${s.id}')"><div class="top"><div><b>${parse(s.date).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}</b> <span class="mut">${s.time?s.time+' · '+bucket(s.time):''}</span></div><span>${s.gtype?`<span class="tag" style="background:${s.gtype==='A'?'rgba(191,90,242,.18);color:#bf5af2':'rgba(100,210,255,.15);color:#64d2ff'}">${s.gtype==='A'?'ADV':'INT'}</span>`:''} <span class="tag ${s.result}">${RES[s.result]||s.result}</span></span></div>
  <div style="display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center"><div>${nmS('Me',d.me)} & ${nmS(s.partner,d.partner)}</div><b style="text-align:right">${(s.sets||[]).filter(x=>x[0]!==''||x[1]!=='').map(x=>x[0]).join(' ')}</b><div class="mut">${nmS(s.opps[0],d.o1)} & ${nmS(s.opps[1],d.o2)}</div><span class="mut" style="text-align:right">${(s.sets||[]).filter(x=>x[0]!==''||x[1]!=='').map(x=>x[1]).join(' ')}</span></div></div>`}).join('')||'<div class="mut" style="margin-top:8px">No matches.</div>'}</div>`;return}if(mSub==='players'){const R=playerRecs();const rows=Object.entries(R).sort((a,b)=>(b[1].w+b[1].l)-(a[1].w+a[1].l));
  $('#app').innerHTML=`<div class="card">${segM()}<div class="mut" style="margin-top:8px">Every player's record across all logged matches they played (with or against me).</div><table style="margin-top:6px"><tr><th>Player</th><th>W-L</th><th>Left</th><th>Right</th></tr>${rows.map(([k,o])=>`<tr><td>${P(nm[k])}</td><td>${RS(o)}</td><td>${wl(o.L)}</td><td>${wl(o.R)}</td></tr>`).join('')||'<tr><td colspan=4 class="mut">No matches yet</td></tr>'}</table></div>`;return}const grp={};
  ms.forEach(s=>{let ks=mSub==='partners'?[key(s.partner)]:mSub==='opps'?s.opps.map(key):[s.opps.map(key).sort().join('|')];ks.filter(k=>k&&k!=='|').forEach(k=>(grp[k]=grp[k]||[]).push(s))});
@@ -232,7 +283,7 @@ function vMatch(){const ms=matches(),nm=allNames();if(mSub==='matches'||mSub==='
  $('#app').innerHTML=`<div class="card">${segM()}
  <table style="margin-top:10px"><tr><th>${mSub==='partners'?'Partner':'Opponent'}</th><th>W-L</th><th>Win%</th></tr>${rows.map(r=>`<tr><td>${name(r[0])}</td><td>${RS(r[3])}</td><td>${PCT(r[3])}</td></tr>`).join('')||'<tr><td colspan=3 class="mut">No matches yet</td></tr>'}</table><div class="mut" style="margin-top:8px">Tap any name for head-to-head details.</div></div>`}
 
-const segM=()=>`<div class="seg" style="flex-wrap:wrap">${[['bydate','By date'],['matches','All games'],['partners','Partners'],['opps','Opponents'],['pairs','Pairs'],['players','Players']].map(t=>`<button style="padding:8px 4px;font-size:13px;flex:1 0 30%;white-space:nowrap" class="${mSub===t[0]?'on':''}" onclick="mSub='${t[0]}';vMatch()">${t[1]}</button>`).join('')}</div>`;
+const segM=()=>`<div class="seg" style="flex-wrap:wrap">${[['bydate','By date'],['matches','All games'],['ratings','Ratings'],['cross','Cross-court'],['partners','Partners'],['opps','Opponents'],['pairs','Pairs'],['players','Players']].map(t=>`<button style="padding:8px 4px;font-size:13px;flex:1 0 30%;white-space:nowrap" class="${mSub===t[0]?'on':''}" onclick="mSub='${t[0]}';render()">${t[1]}</button>`).join('')}</div>`;
 // ---------- HISTORY ----------
 let hF='all';
 function vHist(){const l=sorted().filter(s=>hF==='all'||s.type===hF);
@@ -269,10 +320,13 @@ function openPlayer(k){curPlayer=k;const nm=allNames(),name=nm[k]||k,ms=matches(
  const [vw,vl]=rec(vs),[pw,pl]=rec(wi);const g=vs.reduce((a,s)=>{const x=gamesOf(s);return[a[0]+x[0],a[1]+x[1]]},[0,0]);const gp=wi.reduce((a,s)=>{const x=gamesOf(s);return[a[0]+x[0],a[1]+x[1]]},[0,0]);
  const all=ms.filter(s=>vs.includes(s)||wi.includes(s));
  const row=s=>{const isOpp=s.opps.map(key).includes(k);const mate=isOpp?s.opps.find(o=>key(o)!==k):null;const d=sidesOf(s),ms2=n=>SD(sideFor(s,key(n)));
-  return`<div class="item"><div class="top"><div><span class="tag ${s.result}">${RES[s.result]||s.result}</span> <b>${scoreStr(s)||'—'}</b></div><span class="mut">${isOpp?'Opponent':'Partner'}</span></div>
+  return`<div class="item"><div class="top"><div><span class="tag ${s.result}">${RES[s.result]||s.result}</span> ${s.gtype?`<span class="tag" style="background:${s.gtype==='A'?'rgba(191,90,242,.18);color:#bf5af2':'rgba(100,210,255,.15);color:#64d2ff'}">${s.gtype==='A'?'ADV':'INT'}</span>`:''} <b>${scoreStr(s)||'—'}</b></div><span class="mut">${isOpp?'Opponent':'Partner'}</span></div>
   <div class="mut">${fmtD(s.date)}${TM(s)}${s.club?' · '+esc(s.club):''}</div><div>${esc(name)}${SD(sideFor(s,k))} · Me${SD(d.me)}<br>${isOpp?`Their teammate: ${P(mate)}${ms2(mate)} · My partner: ${P(s.partner)}${ms2(s.partner)}`:`Together vs ${P(s.opps[0])}${ms2(s.opps[0])} & ${P(s.opps[1])}${ms2(s.opps[1])}`}</div></div>`};
  $('#modal').innerHTML=`<header><button class="btn sec" style="width:auto;margin:0;padding:8px 14px" onclick="closeModal()">‹ Back</button><span class="mut">Player</span></header><main>
- <div class="card"><div class="big" style="font-size:28px">${esc(name)}</div><div class="mut">${all.length} matches together or against · last ${all[0]?fmtD(all[0].date):'—'}</div></div>
+ <div class="card"><div class="big" style="font-size:28px">${esc(name)}${isLefty(k)?' <span class="tag" style="background:rgba(255,159,10,.18);color:#ff9f0a;font-size:12px;vertical-align:middle">LEFTY</span>':''}</div><div class="mut">${all.length} matches together or against · last ${all[0]?fmtD(all[0].date):'—'}</div>
+ <div style="display:flex;align-items:center;gap:12px;margin-top:12px"><div><small class="mut">Rating</small><div style="font-size:30px;font-weight:800;color:var(--acc)">${rt(k).toFixed(2)}</div></div><div>${spark(ratings().H[k],120,32)}<div style="font-size:13px">${trendTxt(ratings().H[k])} <span class="mut">since start · ${ratings().N[k]||0} rated matches</span></div></div></div>
+ <div class="row" style="margin-top:12px;align-items:end"><div><label>Start level (0–7)</label><input type="number" step="0.5" min="0" max="7" value="${startLevel(k)}" onchange="setStart('${esc(k).replace(/'/g,"\\'")}',this.value)"></div><div><label>Lefty</label><div class="seg">${[[1,'Yes'],[0,'No']].map(([v,t])=>`<button class="${isLefty(k)==!!v?'on':''}" onclick="setLefty('${esc(k).replace(/'/g,"\\'")}',${v})">${t}</button>`).join('')}</div></div></div></div>
+ ${(()=>{const l=ms.filter(s=>crossOpp(s)===k);return`<div class="card"><h2>When across from you</h2>${l.length?ccRowHTML(`Cross-court in ${l.length} match${l.length===1?'':'es'}`,ccStats(l),ccSplit(l)):'<div class="mut">Never played cross-court from me yet.</div>'}</div>`})()}
  <div class="card"><h2>Head-to-head (vs them)</h2><div class="kpis"><div class="kpi"><small>Record</small><b>${RS(grpStats(vs))}</b></div><div class="kpi"><small>Win %</small><b>${PCT(grpStats(vs))}</b></div><div class="kpi"><small>Games won</small><b>${g[0]}</b></div><div class="kpi"><small>Games lost</small><b>${g[1]}</b></div></div></div>
  <div class="card"><h2>Partnered with them</h2><div class="kpis"><div class="kpi"><small>Record</small><b>${RS(grpStats(wi))}</b></div><div class="kpi"><small>Win %</small><b>${PCT(grpStats(wi))}</b></div><div class="kpi"><small>Games won</small><b>${gp[0]}</b></div><div class="kpi"><small>Games lost</small><b>${gp[1]}</b></div></div></div>
  <div class="card"><h2>Their sides</h2><table><tr><th></th><th>Their W-L (all)</th><th>My W-L vs them</th></tr>${['L','R'].map(x=>{const pr=(playerRecs()[k]||{L:[0,0,0],R:[0,0,0]})[x];const vo=grpStats(vs.filter(s=>sideFor(s,k)===x));return`<tr><td>${x==='L'?'Left':'Right'}</td><td>${wl(pr)}</td><td>${RS(vo)}${vo.d?' ('+PCT(vo)+')':''}</td></tr>`}).join('')}</table><div class="mut" style="margin-top:6px">Their overall: ${RS(playerRecs()[k]||{w:0,l:0,t:0})}</div></div>
@@ -287,6 +341,7 @@ function vSet(){const nd=S.sessions.filter(s=>s.demo).length;
  $('#app').innerHTML=`<div class="card"><h2>Body profile</h2><label>Weight</label><div class="row"><input type="number" value="${S.weight}" onchange="S.weight=+this.value||176;save();vSet()"><div class="seg">${['lb','kg'].map(u=>`<button class="${S.unit===u?'on':''}" onclick="setUnit('${u}')">${u}</button>`).join('')}</div></div>
  <div class="row"><div><label>Body fat %</label><input type="number" step="0.1" value="${pf.bf??''}" onchange="S.profile.bf=this.value===''?null:+this.value;save();vSet()"></div><div><label>Age</label><input type="number" value="${pf.age??''}" onchange="S.profile.age=+this.value;save()"></div></div>
  <div class="row"><div><label>Height (in)</label><input type="number" value="${pf.heightIn??''}" onchange="S.profile.heightIn=+this.value;save()"></div><div><label>Sex</label><div class="seg">${['M','F'].map(x=>`<button class="${pf.sex===x?'on':''}" onclick="S.profile.sex='${x}';save();vSet()">${x}</button>`).join('')}</div></div></div>
+ <label>My start rating (0–7) · current ${rt('me').toFixed(2)}</label><input type="number" step="0.5" value="${startLevel('me')}" onchange="setStart('me',this.value)">
  <label>Resting HR (bpm)</label><input type="number" value="${pf.rhr??''}" onchange="S.profile.rhr=+this.value;save()">
  <div class="mut" style="margin-top:8px">${b?`Lean mass ${(lbmKg()/0.453592).toFixed(1)} lb · BMR ${Math.round(b)} kcal/day (Katch-McArdle) · ${(b/24).toFixed(1)} kcal per MET-hour.<br>`:''}Calories = MET × (BMR ÷ 24) × hours. MET 7 match / 6 training; Easy ×0.8, Hard ×1.2. Falls back to MET × kg if body fat is blank. A manual calorie value on a session always wins.</div></div>
  <div class="card"><h2>Backup</h2><button class="btn" onclick="exportJ()">⬇ Export JSON</button><button class="btn sec" onclick="$('#imp').click()">⬆ Import JSON</button><input id="imp" type="file" accept=".json,application/json" class="hidden" onchange="importJ(this.files[0])"></div>
@@ -317,6 +372,7 @@ function seedReal(force){try{if(!Array.isArray(S.sessions))S.sessions=[];if(!Arr
  if(!Array.isArray(S.upcoming))S.upcoming=[];const U1={id:'seedup1',date:'2026-10-21',time:'06:45',mins:90,int:'Normal',club:'',notes:'',partner:'Juan',opps:['Todd','Pietro'],sides:{me:'R',partner:'L',o1:'L',o2:'R'}};
  if(!S.upcoming.some(x=>x.id===U1.id)&&!S.sessions.some(x=>x.id===U1.id)&&!S.deletedSeeds.includes(U1.id))S.upcoming.push(U1);
  if(!S.mig.profile1){S.profile=Object.assign({bf:13.5,age:42,heightIn:68,sex:'M',rhr:44},S.profile||{});S.weight=145;S.unit='lb';S.mig.profile1=1}
+ if(!S.mig.gt1){const pre=ratings().pre;const sg=(m)=>{const p=pre[m.id];const ks=[key(m.partner),...(m.opps||[]).map(key)].filter(Boolean);if(!ks.length)return'I';const a=ks.reduce((x,k)=>x+(p&&p[k]!=null?p[k]:rt(k)),0)/ks.length;return a>=4.5?'A':'I'};S.sessions.forEach(m=>{if(m.type==='match'&&!m.gtype)m.gtype=sg(m)});S.upcoming.forEach(u=>{if(!u.gtype)u.gtype=suggestGT(u.partner,u.opps)});S.mig.gt1=1}
  if(!S.mig.real3X){const r3=S.sessions.find(y=>y.id==='real3');if(r3&&(r3.result==='L'||r3.result==='U'))r3.result='X';S.mig.real3X=1}
  if(force){const r3=S.sessions.find(y=>y.id==='real3');if(r3)r3.result='X'}
  save();localStorage.setItem('padellog.seed.v2','1')}catch(e){console.error('seed failed',e)}}

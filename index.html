@@ -4,7 +4,7 @@
 <link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><link rel="icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Padel Log">
 <style>
-:root{--bg:#000;--card:#1c1c1e;--card2:#2c2c2e;--txt:#f5f5f7;--mut:#8e8e93;--acc:#c6f432;--win:#30d158;--loss:#ff453a;--tr:#0a84ff;--bd:rgba(255,255,255,.08);--r:16px}
+:root{--tie:#ffd60a;--unf:#8e8e93;--bg:#000;--card:#1c1c1e;--card2:#2c2c2e;--txt:#f5f5f7;--mut:#8e8e93;--acc:#c6f432;--win:#30d158;--loss:#ff453a;--tr:#0a84ff;--bd:rgba(255,255,255,.08);--r:16px}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.45 Inter,-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:calc(88px + env(safe-area-inset-bottom))}
 header{padding:calc(16px + env(safe-area-inset-top)) 16px 8px;display:flex;justify-content:space-between;align-items:center;max-width:640px;margin:auto}
@@ -33,6 +33,7 @@ table{width:100%;border-collapse:collapse}td,th{padding:8px 4px;border-bottom:1p
 .modal{position:fixed;inset:0;background:var(--bg);overflow:auto;z-index:10;padding-bottom:calc(32px + env(safe-area-inset-bottom));animation:slide .28s cubic-bezier(.2,.8,.2,1)}@keyframes slide{from{transform:translateX(30%);opacity:0}to{transform:none;opacity:1}}.hidden{display:none}
 .big{font-size:32px;font-weight:800;letter-spacing:-.6px;color:var(--txt)}.demo{background:rgba(255,214,10,.12);color:#ffd60a;border-radius:12px;padding:8px 12px;font-size:13px}
 #calest{color:var(--acc)}
+.X{background:#ffd60a;color:#000}.U{background:#8e8e93;color:#000}
 </style></head><body>
 <header><h1>PADEL <b>LOG</b></h1><span class="mut" id="hdrinfo"></span></header>
 <div id="due"></div><main id="app"></main>
@@ -75,6 +76,12 @@ function render(){killCharts();renderNav();renderDue();$('#hdrinfo').textContent
 // ---------- LOG ----------
 function blank(){return{type:'match',date:today(),time:(d=>pad(d.getHours())+':'+pad(d.getMinutes()))(new Date()),mins:90,int:'Normal',partner:'',opps:['',''],sets:[['',''],['',''],['','']],result:'W',club:'',notes:'',sides:{me:'L',partner:'R',o1:'L',o2:'R'}}}
 const bucket=t=>{if(!t)return null;const h=+t.split(':')[0];return h<12?'Morning':h<17?'Afternoon':'Evening'};const TM=s=>s.time?' · '+s.time+' ('+bucket(s.time)+')':'';
+const RES={W:'WON',L:'LOST',X:'TIE',U:'UNFINISHED'},RCOL={W:'win',L:'loss',X:'tie',U:'unf'};
+function RS(o){return o.t?`${o.w}-${o.l}-${o.t}`:`${o.w}-${o.l}`}
+const PCT=o=>o.d?Math.round(o.w/o.d*100)+'%':'—';
+function setDone(a,b){a=+a;b=+b;const m=Math.max(a,b);return m>=6&&(Math.abs(a-b)>=2||m===7)}
+function resBtns(){return [['W','Won'],['L','Lost'],['X','Tie'],['U','Unfinished']].map(([c,t])=>`<button style="font-size:13px" class="${F.result===c?'on':''}" onclick="F.result='${c}';F.resManual=1;$('#resseg').innerHTML=resBtns()">${t}</button>`).join('')}
+function suggestRes(){if(F.resManual)return;const st=F.sets.filter(x=>x[0]!==''||x[1]!=='');if(!st.length)return;const last=st[st.length-1];if(!setDone(last[0],last[1])){F.result='U'}else{let w=0,l=0;st.forEach(x=>{+x[0]>+x[1]?w++:l++});F.result=w>l?'W':l>w?'L':'X'}const e=$('#resseg');if(e)e.innerHTML=resBtns()}
 const opp=x=>x==='L'?'R':'L';const SD=x=>x?` <small class="tag" style="background:#2c2c2e;color:#c6f432">${x}</small>`:'';
 const sidesOf=s=>s.sides||{};
 function sideFor(s,k){const d=sidesOf(s);if(key(s.partner)===k)return d.partner;if(key(s.opps[0])===k)return d.o1;if(key(s.opps[1])===k)return d.o2}
@@ -96,8 +103,8 @@ function vLog(){
  ${m?`<label>Partner</label><input list="names" value="${esc(f.partner)}" oninput="F.partner=this.value" onchange="F.partner=this.value;autoSide()" placeholder="Partner name">
  <label>Opponents</label><div class="row"><input list="names" value="${esc(f.opps[0])}" oninput="F.opps[0]=this.value" onchange="F.opps[0]=this.value;autoOpp(0)" placeholder="Opponent 1"><input list="names" value="${esc(f.opps[1])}" oninput="F.opps[1]=this.value" onchange="F.opps[1]=this.value;autoOpp(1)" placeholder="Opponent 2"></div>
  <label>Court sides</label>${sideSeg('me','Me')}${sideSeg('partner','Partner')}${sideSeg('o1','Opponent 1')}${sideSeg('o2','Opponent 2')}
- ${up?'':`<label>Score</label><div class="sets"><span></span><small class="mut">Us</small><small class="mut">Them</small>${[0,1,2].map(i=>`<span class="mut">Set ${i+1}</span><input type="number" min="0" value="${f.sets[i][0]}" oninput="F.sets[${i}][0]=this.value"><input type="number" min="0" value="${f.sets[i][1]}" oninput="F.sets[${i}][1]=this.value">`).join('')}</div>
- <label>Result</label><div class="seg"><button class="${f.result==='W'?'on':''}" onclick="F.result='W';vLog()">Won</button><button class="${f.result==='L'?'on':''}" onclick="F.result='L';vLog()">Lost</button></div>`}
+ ${up?'':`<label>Score</label><div class="sets"><span></span><small class="mut">Us</small><small class="mut">Them</small>${[0,1,2].map(i=>`<span class="mut">Set ${i+1}</span><input type="number" min="0" value="${f.sets[i][0]}" oninput="F.sets[${i}][0]=this.value" onchange="suggestRes()"><input type="number" min="0" value="${f.sets[i][1]}" oninput="F.sets[${i}][1]=this.value" onchange="suggestRes()">`).join('')}</div>
+ <label>Result</label><div class="seg" id="resseg">${resBtns()}</div><div class="mut" style="margin-top:4px">Auto-suggested from the score; tap to override.</div>`}
  <label>Club / court</label><input value="${esc(f.club)}" oninput="F.club=this.value" placeholder="Club or court">`:`<label>Club / location</label><input value="${esc(f.club)}" oninput="F.club=this.value">`}
  <label>Notes</label><textarea rows="2" oninput="F.notes=this.value">${esc(f.notes)}</textarea>
  <div class="kpi" style="margin-top:12px"><small>Estimated calories</small><b id="calest"></b></div>
@@ -108,15 +115,15 @@ function saveForm(){const f=F;if(!f.date||!(f.mins>0))return alert('Date and dur
  if(f.type==='upcoming'){const nm=allNames();const c=n=>nm[key(n)]||norm(n);const u={id:f.upEdit||uid(),date:f.date,time:f.time||'',mins:+f.mins,int:f.int,club:norm(f.club),notes:f.notes.trim(),partner:c(f.partner),opps:f.opps.map(c),sides:{...f.sides}};
   S.upcoming=S.upcoming.filter(x=>x.id!==u.id);S.upcoming.push(u);save();editId=null;F=blank();selDay=u.date;go('log');return}
  if(f.upId)S.upcoming=S.upcoming.filter(x=>x.id!==f.upId);
- const s={id:editId||uid(),ts:Date.now(),type:f.type,date:f.date,time:f.time||'',mins:+f.mins,int:f.int,club:norm(f.club),notes:f.notes.trim()};
+ const s={id:editId||f.upId||uid(),ts:Date.now(),type:f.type,date:f.date,time:f.time||'',mins:+f.mins,int:f.int,club:norm(f.club),notes:f.notes.trim()};
  if(f.type==='match'){const nm=allNames();const c=n=>nm[key(n)]||norm(n);s.partner=c(f.partner);s.opps=f.opps.map(c);s.sets=f.sets;s.result=f.result;s.sides={...f.sides}}
  const old=S.sessions.find(x=>x.id===editId);if(old){s.demo=old.demo;s.ts=old.ts}
  S.sessions=S.sessions.filter(x=>x.id!==s.id);S.sessions.push(s);save();editId=null;F=blank();go('hist')}
 function editS(id){const s=S.sessions.find(x=>x.id===id);editId=id;F=Object.assign(blank(),JSON.parse(JSON.stringify(s)));if(!F.sets)F.sets=[['',''],['',''],['','']];if(!F.opps)F.opps=['',''];if(!F.sides)F.sides=blank().sides;go('log')}
-function delS(id){if(!confirm('Delete this session?'))return;S.sessions=S.sessions.filter(x=>x.id!==id);save();if(!$('#modal').classList.contains('hidden')&&curPlayer)openPlayer(curPlayer);render()}
+function delS(id){if(!confirm('Delete this session?'))return;if(/^real\d$/.test(id)){S.deletedSeeds=S.deletedSeeds||[];if(!S.deletedSeeds.includes(id))S.deletedSeeds.push(id)}S.sessions=S.sessions.filter(x=>x.id!==id);save();if(!$('#modal').classList.contains('hidden')&&curPlayer)openPlayer(curPlayer);render()}
 
 function itemHTML(s,showDate=true){const c=cals(s.type,s.mins,s.int);
- if(s.type==='match')return`<div class="item"><div class="top"><div><span class="tag ${s.result}">${s.result==='W'?'WON':'LOST'}</span> <b>${scoreStr(s)||'—'}</b></div><div class="acts"><button onclick="editS('${s.id}')">Edit</button><button onclick="delS('${s.id}')">Del</button></div></div>
+ if(s.type==='match')return`<div class="item"><div class="top"><div><span class="tag ${s.result}">${RES[s.result]||s.result}</span> <b>${scoreStr(s)||'—'}</b></div><div class="acts"><button onclick="editS('${s.id}')">Edit</button><button onclick="delS('${s.id}')">Del</button></div></div>
  <div>Me${SD(sidesOf(s).me)} w/ ${P(s.partner)}${SD(sidesOf(s).partner)} vs ${P(s.opps[0])}${SD(sidesOf(s).o1)} & ${P(s.opps[1])}${SD(sidesOf(s).o2)}</div><div class="mut">${showDate?fmtD(s.date)+TM(s):(s.time?s.time+' ('+bucket(s.time)+')':'')} · ${s.mins} min · ${s.int} · ${c} kcal${s.club?' · '+esc(s.club):''}${s.demo?' · demo':''}</div>${s.notes?`<div class="mut">📝 ${esc(s.notes)}</div>`:''}</div>`;
  return`<div class="item"><div class="top"><div><span class="tag T">TRAINING</span></div><div class="acts"><button onclick="editS('${s.id}')">Edit</button><button onclick="delS('${s.id}')">Del</button></div></div><div class="mut">${showDate?fmtD(s.date)+TM(s):(s.time?s.time+' ('+bucket(s.time)+')':'')} · ${s.mins} min · ${s.int} · ${c} kcal${s.club?' · '+esc(s.club):''}${s.demo?' · demo':''}</div>${s.notes?`<div class="mut">📝 ${esc(s.notes)}</div>`:''}</div>`}
 
@@ -130,7 +137,7 @@ function upListHTML(){const l=upSorted();return l.length?`<div class="card"><h2>
 function upToF(u){return Object.assign(blank(),JSON.parse(JSON.stringify(u)),{sets:[['',''],['',''],['','']],result:'W'})}
 function editUp(id){const u=S.upcoming.find(x=>x.id===id);editId=null;F=upToF(u);F.type='upcoming';F.upEdit=id;go('log')}
 function completeUp(id){const u=S.upcoming.find(x=>x.id===id);editId=null;F=upToF(u);F.type='match';F.upId=id;go('log')}
-function cancelUp(id){if(!confirm('Cancel this upcoming match?'))return;S.upcoming=S.upcoming.filter(x=>x.id!==id);save();render()}
+function cancelUp(id){if(!confirm('Cancel this upcoming match?'))return;if(id==='seedup1'){S.deletedSeeds=S.deletedSeeds||[];S.deletedSeeds.push(id)}S.upcoming=S.upcoming.filter(x=>x.id!==id);save();render()}
 function renderDue(){const l=dueList(),e=$('#due');if(tab==='log'&&F&&F.upId){e.innerHTML='';return}
  e.innerHTML=l.length?`<main style="animation:none"><div class="card" style="border:1.5px solid var(--acc);background:linear-gradient(135deg,rgba(198,244,50,.16),rgba(198,244,50,.04))"><h2 style="color:var(--acc)">🎾 How did it go?</h2>${l.map(u=>`<div class="item"><div><b>${fmtD(u.date)}${u.time?' · '+u.time:''}</b></div><div class="mut">w/ ${esc(u.partner)||'—'} vs ${esc(u.opps[0])||'—'} & ${esc(u.opps[1])||'—'}</div><button class="btn" style="margin-top:8px" onclick="completeUp('${u.id}')">Enter score & result</button></div>`).join('')}</div></main>`:''}
 setInterval(()=>{if(dueList().length!==($('#due').querySelectorAll('.item').length))renderDue()},60000);
@@ -139,13 +146,13 @@ let calM=new Date(),selDay=today();calM.setDate(1);
 function vCal(){const y=calM.getFullYear(),mo=calM.getMonth();const by={};S.sessions.forEach(s=>(by[s.date]=by[s.date]||[]).push(s));
  const first=new Date(y,mo,1),start=new Date(y,mo,1-((first.getDay()+6)%7));let cells='';
  for(let i=0;i<42;i++){const d=new Date(start);d.setDate(start.getDate()+i);const k=iso(d),ss=by[k]||[],us=S.upcoming.filter(u=>u.date===k);
-  cells+=`<div class="d ${d.getMonth()!==mo?'o':''} ${k===today()?'today':''} ${k===selDay?'sel':''}" onclick="selDay='${k}';${d.getMonth()!==mo?`calM=new Date(${d.getFullYear()},${d.getMonth()},1);`:''}vCal()">${d.getDate()}<div class="dots">${ss.map(s=>`<i style="background:var(--${s.type==='training'?'tr':s.result==='W'?'win':'loss'})"></i>`).join('')}${us.map(()=>`<i style="border:1.5px solid var(--acc);box-sizing:border-box"></i>`).join('')}</div></div>`}
+  cells+=`<div class="d ${d.getMonth()!==mo?'o':''} ${k===today()?'today':''} ${k===selDay?'sel':''}" onclick="selDay='${k}';${d.getMonth()!==mo?`calM=new Date(${d.getFullYear()},${d.getMonth()},1);`:''}vCal()">${d.getDate()}<div class="dots">${ss.map(s=>`<i style="background:var(--${s.type==='training'?'tr':RCOL[s.result]||'loss'})"></i>`).join('')}${us.map(()=>`<i style="border:1.5px solid var(--acc);box-sizing:border-box"></i>`).join('')}</div></div>`}
  const mS=S.sessions.filter(s=>s.date.startsWith(y+'-'+pad(mo+1))),mm=mS.filter(s=>s.type==='match');
  const day=(by[selDay]||[]);
  $('#app').innerHTML=`<div class="card"><div class="nav2"><button onclick="calM.setMonth(calM.getMonth()-1);vCal()">‹</button><b>${calM.toLocaleDateString(undefined,{month:'long',year:'numeric'})}</b><button onclick="calM.setMonth(calM.getMonth()+1);vCal()">›</button></div>
  <div class="row" style="margin-bottom:10px"><input type="date" value="${selDay}" onchange="if(this.value){selDay=this.value;const d=parse(this.value);calM=new Date(d.getFullYear(),d.getMonth(),1);vCal()}"><button class="btn sec" style="margin:0;flex:0 0 80px" onclick="selDay=today();calM=new Date();calM.setDate(1);vCal()">Today</button></div>
  <div class="cal">${['Mo','Tu','We','Th','Fr','Sa','Su'].map(h=>`<div class="h">${h}</div>`).join('')}${cells}</div>
- <div class="mut" style="margin-top:8px"><i class="W" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 8px"></i>Win <i class="L" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 8px"></i>Loss <i class="T" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 8px"></i>Training <i style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 8px;border:1.5px solid var(--acc)"></i>Upcoming · Month: ${mS.length} sessions, ${mm.filter(s=>s.result==='W').length}-${mm.filter(s=>s.result==='L').length}, ${(mS.reduce((a,s)=>a+s.mins,0)/60).toFixed(1)}h</div></div>
+ <div class="mut" style="margin-top:8px"><i class="W" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 8px"></i>Win <i class="L" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 8px"></i>Loss <i class="X" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 8px"></i>Tie <i class="U" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 8px"></i>Unfin. <i class="T" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 8px"></i>Training <i style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 8px;border:1.5px solid var(--acc)"></i>Upcoming · Month: ${mS.length} sessions, ${RS(grpStats(mm))}, ${(mS.reduce((a,s)=>a+s.mins,0)/60).toFixed(1)}h</div></div>
  <div class="card"><h2>${fmtD(selDay)}</h2>${S.upcoming.filter(u=>u.date===selDay).map(u=>upItem(u,false)).join('')}${day.length?day.map(s=>itemHTML(s,false)).join(''):S.upcoming.some(u=>u.date===selDay)?'':'<div class="mut">No sessions this day.</div>'}
  ${selDay>today()?`<button class="btn sec" onclick="F=blank();F.type='upcoming';F.date=selDay;F.time='18:00';editId=null;go('log')">+ Schedule match on this day</button>`:''}
  <button class="btn sec" onclick="F=blank();F.date=selDay;editId=null;go('log')">+ Log session on this day</button></div>`}
@@ -154,8 +161,8 @@ function vCal(){const y=calM.getFullYear(),mo=calM.getMonth();const by={};S.sess
 let calG='week',calOff=0,trG='month';
 function perKey(d,g){const y=d.getFullYear(),m=d.getMonth();return g==='week'?iso(weekStart(d)):g==='month'?y+'-'+pad(m+1):g==='quarter'?y+'-Q'+(Math.floor(m/3)+1):''+y}
 function perList(g,n){const out=[],d=new Date();d.setHours(0,0,0,0);for(let i=n-1;i>=0;i--){const x=new Date(d);if(g==='week')x.setDate(x.getDate()-7*i);else if(g==='month'){x.setDate(1);x.setMonth(x.getMonth()-i)}else if(g==='quarter'){x.setDate(1);x.setMonth(x.getMonth()-3*i)}else x.setFullYear(x.getFullYear()-i);out.push(perKey(x,g))}return out}
-function perAgg(list){const ms=list.filter(s=>s.type==='match'),o=grpStats(ms);const pct=f=>{const q=grpStats(ms.filter(f));return q.n?Math.round(q.p*100):null};const g=ms.reduce((a,s)=>{const x=gamesOf(s);return[a[0]+x[0],a[1]+x[1]]},[0,0]);
- return{n:ms.length,w:o.w,l:o.l,win:o.n?Math.round(o.p*100):null,gp:g[0]+g[1]?Math.round(g[0]/(g[0]+g[1])*100):null,hrs:+(list.reduce((a,s)=>a+s.mins,0)/60).toFixed(1),cal:list.reduce((a,s)=>a+cals(s.type,s.mins,s.int),0),L:pct(s=>sidesOf(s).me==='L'),R:pct(s=>sidesOf(s).me==='R'),Mo:pct(s=>bucket(s.time)==='Morning'),Af:pct(s=>bucket(s.time)==='Afternoon'),Ev:pct(s=>bucket(s.time)==='Evening')}}
+function perAgg(list){const ms=list.filter(s=>s.type==='match'),o=grpStats(ms);const pct=f=>{const q=grpStats(ms.filter(f));return q.d?Math.round(q.p*100):null};const g=ms.reduce((a,s)=>{const x=gamesOf(s);return[a[0]+x[0],a[1]+x[1]]},[0,0]);
+ return{n:ms.length,w:o.w,l:o.l,win:o.d?Math.round(o.p*100):null,gp:g[0]+g[1]?Math.round(g[0]/(g[0]+g[1])*100):null,hrs:+(list.reduce((a,s)=>a+s.mins,0)/60).toFixed(1),cal:list.reduce((a,s)=>a+cals(s.type,s.mins,s.int),0),L:pct(s=>sidesOf(s).me==='L'),R:pct(s=>sidesOf(s).me==='R'),Mo:pct(s=>bucket(s.time)==='Morning'),Af:pct(s=>bucket(s.time)==='Afternoon'),Ev:pct(s=>bucket(s.time)==='Evening')}}
 const arrow=(a,b,u='')=>a==null||b==null?'':a>b?` <span style="color:var(--win)">▲${Math.round(a-b)}${u}</span>`:a<b?` <span style="color:var(--loss)">▼${Math.round(b-a)}${u}</span>`:' <span class="mut">▬</span>';
 function renderTrends(){const g=trG,n={week:12,month:12,quarter:8,year:5}[g],keys=perList(g,n),by={};S.sessions.forEach(s=>{const k=perKey(parse(s.date),g);(by[k]=by[k]||[]).push(s)});const A=keys.map(k=>perAgg(by[k]||[]));
  const ds=(lab,f,c,ax)=>({label:lab,data:A.map(f),borderColor:c,backgroundColor:c,tension:.3,spanGaps:true,yAxisID:ax||'y'});const mk=(id,sets,y)=>charts.push(new Chart($('#'+id),{type:'line',data:{labels:keys,datasets:sets},options:{plugins:{legend:{display:sets.length>1,labels:{boxWidth:10}}},scales:y||{y:{beginAtZero:true}}}}));const P100={y:{min:0,max:100}};
@@ -166,13 +173,13 @@ function renderTrends(){const g=trG,n={week:12,month:12,quarter:8,year:5}[g],key
  const tb=[['morning',rec.Mo],['afternoon',rec.Af],['evening',rec.Ev]].filter(x=>x[1]!=null).sort((a,b)=>b[1]-a[1]);if(tb.length>1)ins.push(`Best time lately: ${tb[0][0]} (${tb[0][1]}% wins)`);
  if(!c.n&&!p.n)ins.unshift(`No matches this ${g} or last ${g} yet.`);$('#insights').innerHTML=ins.map(t=>`<div style="margin:3px 0">💡 ${t}</div>`).join('');
  const qk=perList('quarter',6),Q=qk.map(k=>perAgg(S.sessions.filter(s=>perKey(parse(s.date),'quarter')===k)));
- $('#seasons').innerHTML=`<table><tr><th>Season</th><th>W-L</th><th>Win%</th><th>Games%</th><th>Hours</th></tr>${qk.map((k,i)=>[k,Q[i],Q[i-1]]).filter(x=>x[1].n||x[1].hrs).reverse().map(([k,q,pq])=>`<tr><td>${k}</td><td>${q.w}-${q.l}</td><td>${q.win??'—'}${q.win!=null?'%':''}${pq?arrow(q.win,pq.win):''}</td><td>${q.gp??'—'}${pq?arrow(q.gp,pq.gp):''}</td><td>${q.hrs}${pq?arrow(q.hrs,pq.hrs,'h'):''}</td></tr>`).join('')||'<tr><td colspan=5 class="mut">No data</td></tr>'}</table><div class="mut" style="margin-top:6px">Arrows compare to the previous season.</div>`}
+ $('#seasons').innerHTML=`<table><tr><th>Season</th><th>W-L</th><th>Win%</th><th>Games%</th><th>Hours</th></tr>${qk.map((k,i)=>[k,Q[i],Q[i-1]]).filter(x=>x[1].n||x[1].hrs).reverse().map(([k,q,pq])=>`<tr><td>${k}</td><td>${RS(q)}</td><td>${q.win??'—'}${q.win!=null?'%':''}${pq?arrow(q.win,pq.win):''}</td><td>${q.gp??'—'}${pq?arrow(q.gp,pq.gp):''}</td><td>${q.hrs}${pq?arrow(q.hrs,pq.hrs,'h'):''}</td></tr>`).join('')||'<tr><td colspan=5 class="mut">No data</td></tr>'}</table><div class="mut" style="margin-top:6px">Arrows compare to the previous season.</div>`}
 function weekStart(d){const x=new Date(d);x.setDate(x.getDate()-((x.getDay()+6)%7));x.setHours(0,0,0,0);return x}
 function vStats(){const ms=matches(),w=ms.filter(s=>s.result==='W').length;const now=new Date(),mk=iso(now).slice(0,7);
  const hrsM=S.sessions.filter(s=>s.date.startsWith(mk)).reduce((a,s)=>a+s.mins,0)/60;
  const weeks=new Set(S.sessions.map(s=>iso(weekStart(parse(s.date)))));let st=0,ws=weekStart(now);if(!weeks.has(iso(ws)))ws.setDate(ws.getDate()-7);while(weeks.has(iso(ws))){st++;ws.setDate(ws.getDate()-7)}
  const totC=S.sessions.reduce((a,s)=>a+cals(s.type,s.mins,s.int),0);
- $('#app').innerHTML=`<div class="kpis"><div class="kpi"><small>Win rate</small><b>${ms.length?Math.round(w/ms.length*100)+'%':'—'}</b><small>${w}-${ms.length-w}</small></div><div class="kpi"><small>Hours this month</small><b>${hrsM.toFixed(1)}</b></div><div class="kpi"><small>Week streak</small><b>${st}</b></div>${['L','R'].map(x=>{const l=ms.filter(s=>sidesOf(s).me===x),ww=l.filter(s=>s.result==='W').length;return`<div class="kpi"><small>Me on ${x==='L'?'Left':'Right'}</small><b>${l.length?Math.round(ww/l.length*100)+'%':'—'}</b><small>${ww}-${l.length-ww}</small></div>`}).join('')}<div class="kpi"><small>Total calories</small><b>${totC.toLocaleString()}</b></div></div>
+ $('#app').innerHTML=`<div class="kpis"><div class="kpi"><small>Win rate</small><b>${PCT(grpStats(ms))}</b><small>${RS(grpStats(ms))}</small></div><div class="kpi"><small>Hours this month</small><b>${hrsM.toFixed(1)}</b></div><div class="kpi"><small>Week streak</small><b>${st}</b></div>${['L','R'].map(x=>{const o=grpStats(ms.filter(s=>sidesOf(s).me===x));return`<div class="kpi"><small>Me on ${x==='L'?'Left':'Right'}</small><b>${PCT(o)}</b><small>${RS(o)}</small></div>`}).join('')}<div class="kpi"><small>Total calories</small><b>${totC.toLocaleString()}</b></div></div>
  <div class="card"><h2>Last 8 matches</h2>${ms.slice(0,8).reverse().map(s=>`<span class="pill ${s.result}">${s.result}</span>`).join('')||'<span class="mut">No matches</span>'}</div>
  ${bestHTML(ms)}
  <div class="card" id="trcard"><h2>📈 Trends</h2><div class="seg">${['week','month','quarter','year'].map(g=>`<button class="${trG===g?'on':''}" onclick="trG='${g}';render()">${g[0].toUpperCase()+g.slice(1)}</button>`).join('')}</div><div id="insights" style="margin:10px 0"></div>${['Win % & games won %','Matches played','Hours & calories','Win % by side','Win % by time of day'].map((t,i)=>`<div class="mut" style="margin-top:10px">${t}</div><canvas id="tr${i}" height="170"></canvas>`).join('')}</div>
@@ -194,27 +201,27 @@ function vStats(){const ms=matches(),w=ms.filter(s=>s.result==='W').length;const
  charts.push(new Chart($('#cc'),{type:'bar',data:{labels:labs,datasets:[{label:'kcal',data:vals,backgroundColor:'#c6f432',borderRadius:6,maxBarThickness:22}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}}));
  const hl=[],hv=[];for(let i=11;i>=0;i--){const d=weekStart(new Date());d.setDate(d.getDate()-7*i);const k=iso(d);hl.push(d.toLocaleDateString(undefined,{month:'short',day:'numeric'}));hv.push(+(S.sessions.filter(s=>iso(weekStart(parse(s.date)))===k).reduce((a,s)=>a+s.mins,0)/60).toFixed(1))}
  charts.push(new Chart($('#hw'),{type:'bar',data:{labels:hl,datasets:[{data:hv,backgroundColor:'rgba(198,244,50,.55)',borderRadius:6,maxBarThickness:22}]},options:{plugins:{legend:{display:false}}}}));
- const asc=[...ms].reverse();let ww=0;const wl=[],wv=[];asc.forEach((s,i)=>{if(s.result==='W')ww++;wl.push(parse(s.date).toLocaleDateString(undefined,{month:'short',day:'numeric'}));wv.push(Math.round(ww/(i+1)*100))});
+ const asc=[...ms].reverse();let ww=0,dd=0;const wl=[],wv=[];asc.forEach((s,i)=>{if(s.result==='W')ww++;if(s.result==='W'||s.result==='L')dd++;wl.push(parse(s.date).toLocaleDateString(undefined,{month:'short',day:'numeric'}));wv.push(dd?Math.round(ww/dd*100):null)});
  charts.push(new Chart($('#wr'),{type:'line',data:{labels:wl,datasets:[{data:wv,borderColor:'#c6f432',tension:.35}]},options:{plugins:{legend:{display:false}},scales:{y:{min:0,max:100}}}}))}
 
-function grpStats(list){const w=list.filter(s=>s.result==='W').length,g=list.reduce((a,s)=>{const x=gamesOf(s);return[a[0]+x[0],a[1]+x[1]]},[0,0]);return{n:list.length,w,l:list.length-w,p:list.length?w/list.length:-1,gp:g[0]+g[1]?Math.round(g[0]/(g[0]+g[1])*100)+'%':'—'}}
+function grpStats(list){const w=list.filter(s=>s.result==='W').length,l=list.filter(s=>s.result==='L').length,d=w+l,g=list.reduce((a,s)=>{const x=gamesOf(s);return[a[0]+x[0],a[1]+x[1]]},[0,0]);return{n:list.length,w,l,t:list.length-d,d,p:d?w/d:-1,gp:g[0]+g[1]?Math.round(g[0]/(g[0]+g[1])*100)+'%':'—'}}
 function bestHTML(ms){const B=['Morning','Afternoon','Evening'].map(b=>[b,grpStats(ms.filter(s=>bucket(s.time)===b))]);const best=B.filter(x=>x[1].n).sort((a,b)=>b[1].p-a[1].p)[0];
  const D=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i)=>[d,grpStats(ms.filter(s=>(parse(s.date).getDay()+6)%7===i))]);
- const tbl=(rows,hl)=>`<table><tr><th></th><th>W-L</th><th>Win%</th><th>Games%</th><th>#</th></tr>${rows.map(([b,o])=>`<tr style="${hl&&best&&best[0]===b?'color:#c6f432;font-weight:700':''}"><td>${b}${hl&&best&&best[0]===b?' ⭐':''}</td><td>${o.w}-${o.l}</td><td>${o.n?Math.round(o.p*100)+'%':'—'}</td><td>${o.gp}</td><td>${o.n}</td></tr>`).join('')}</table>`;
+ const tbl=(rows,hl)=>`<table><tr><th></th><th>W-L</th><th>Win%</th><th>Games%</th><th>#</th></tr>${rows.map(([b,o])=>`<tr style="${hl&&best&&best[0]===b?'color:#c6f432;font-weight:700':''}"><td>${b}${hl&&best&&best[0]===b?' ⭐':''}</td><td>${RS(o)}</td><td>${PCT(o)}</td><td>${o.gp}</td><td>${o.n}</td></tr>`).join('')}</table>`;
  return`<div class="card"><h2>⏰ When I play best</h2>${tbl(B,1)}<div class="mut" style="margin:6px 0 12px">Morning &lt;12:00 · Afternoon 12–17 · Evening &gt;17:00${best?` · Best: <b style="color:#c6f432">${best[0]}</b>`:''}</div><h2>By day of week</h2>${tbl(D,0)}</div>`}
 // ---------- MATCHUPS ----------
 let mSub='partners';
-function playerRecs(){const R={};const add=(n,side,won)=>{const k=key(n);if(!k)return;const o=R[k]=R[k]||{w:0,l:0,L:[0,0],R:[0,0]};o[won?'w':'l']++;if(side)o[side][won?0:1]++};
- matches().forEach(s=>{const d=sidesOf(s),W=s.result==='W';add(s.partner,d.partner,W);add(s.opps[0],d.o1,!W);add(s.opps[1],d.o2,!W)});return R}
-const wl=a=>`${a[0]}-${a[1]}`;
-function rec(list){const w=list.filter(s=>s.result==='W').length;return[w,list.length-w]}
+function playerRecs(){const R={};const add=(n,side,res)=>{const k=key(n);if(!k)return;const o=R[k]=R[k]||{w:0,l:0,t:0,L:[0,0,0],R:[0,0,0]};const ix=res==='W'?0:res==='L'?1:2;o['wlt'[ix]]++;if(side)o[side][ix]++};
+ matches().forEach(s=>{const d=sidesOf(s),fl={W:'L',L:'W'}[s.result]||s.result;add(s.partner,d.partner,s.result);add(s.opps[0],d.o1,fl);add(s.opps[1],d.o2,fl)});return R}
+const wl=a=>a[2]?`${a[0]}-${a[1]}-${a[2]}`:`${a[0]}-${a[1]}`;
+function rec(list){const o=grpStats(list);return[o.w,o.l,o]}
 function vMatch(){const ms=matches(),nm=allNames();if(mSub==='players'){const R=playerRecs();const rows=Object.entries(R).sort((a,b)=>(b[1].w+b[1].l)-(a[1].w+a[1].l));
- $('#app').innerHTML=`<div class="card">${segM()}<div class="mut" style="margin-top:8px">Every player's record across all logged matches they played (with or against me).</div><table style="margin-top:6px"><tr><th>Player</th><th>W-L</th><th>Left</th><th>Right</th></tr>${rows.map(([k,o])=>`<tr><td>${P(nm[k])}</td><td>${o.w}-${o.l}</td><td>${wl(o.L)}</td><td>${wl(o.R)}</td></tr>`).join('')||'<tr><td colspan=4 class="mut">No matches yet</td></tr>'}</table></div>`;return}const grp={};
+ $('#app').innerHTML=`<div class="card">${segM()}<div class="mut" style="margin-top:8px">Every player's record across all logged matches they played (with or against me).</div><table style="margin-top:6px"><tr><th>Player</th><th>W-L</th><th>Left</th><th>Right</th></tr>${rows.map(([k,o])=>`<tr><td>${P(nm[k])}</td><td>${RS(o)}</td><td>${wl(o.L)}</td><td>${wl(o.R)}</td></tr>`).join('')||'<tr><td colspan=4 class="mut">No matches yet</td></tr>'}</table></div>`;return}const grp={};
  ms.forEach(s=>{let ks=mSub==='partners'?[key(s.partner)]:mSub==='opps'?s.opps.map(key):[s.opps.map(key).sort().join('|')];ks.filter(k=>k&&k!=='|').forEach(k=>(grp[k]=grp[k]||[]).push(s))});
- const rows=Object.entries(grp).map(([k,l])=>[k,...rec(l)]).sort((a,b)=>(b[1]+b[2])-(a[1]+a[2]));
+ const rows=Object.entries(grp).map(([k,l])=>[k,...rec(l)]).sort((a,b)=>b[3].n-a[3].n);
  const name=k=>mSub==='pairs'?k.split('|').map(x=>P(nm[x]||x)).join(' & ')+` <button class="tag" style="background:rgba(198,244,50,.15);color:#c6f432;border:0" onclick="openPair('${esc(k).replace(/'/g,"\\'")}')">🔎 Scout</button>`:P(nm[k]);
  $('#app').innerHTML=`<div class="card">${segM()}
- <table style="margin-top:10px"><tr><th>${mSub==='partners'?'Partner':'Opponent'}</th><th>W-L</th><th>Win%</th></tr>${rows.map(r=>`<tr><td>${name(r[0])}</td><td>${r[1]}-${r[2]}</td><td>${Math.round(r[1]/(r[1]+r[2])*100)}%</td></tr>`).join('')||'<tr><td colspan=3 class="mut">No matches yet</td></tr>'}</table><div class="mut" style="margin-top:8px">Tap any name for head-to-head details.</div></div>`}
+ <table style="margin-top:10px"><tr><th>${mSub==='partners'?'Partner':'Opponent'}</th><th>W-L</th><th>Win%</th></tr>${rows.map(r=>`<tr><td>${name(r[0])}</td><td>${RS(r[3])}</td><td>${PCT(r[3])}</td></tr>`).join('')||'<tr><td colspan=3 class="mut">No matches yet</td></tr>'}</table><div class="mut" style="margin-top:8px">Tap any name for head-to-head details.</div></div>`}
 
 const segM=()=>`<div class="seg" style="flex-wrap:wrap">${[['partners','Partners'],['opps','Opponents'],['pairs','Pairs'],['players','Players']].map(t=>`<button style="padding:8px 4px;font-size:13px" class="${mSub===t[0]?'on':''}" onclick="mSub='${t[0]}';vMatch()">${t[1]}</button>`).join('')}</div>`;
 // ---------- HISTORY ----------
@@ -233,10 +240,10 @@ function openPair(pk){curPlayer=null;const nm=allNames(),[a,b]=pk.split('|'),A=n
  const avg=l.length?l.reduce((q,s)=>{const g=gamesOf(s);return[q[0]+g[0],q[1]+g[1]]},[0,0]).map(x=>(x/l.length).toFixed(1)):null;
  $('#modal').innerHTML=`<header><button class="btn sec" style="width:auto;margin:0;padding:8px 14px" onclick="closeModal()">‹ Back</button><span class="mut">Pair scouting</span></header><main>
  <div class="card"><div class="big" style="font-size:24px">${P(A)} & ${P(B)}</div><div class="mut">${l.length} matches · last played ${l[0]?fmtD(l[0].date):'—'}</div></div>
- <div class="card"><h2>My record vs them</h2><div class="kpis"><div class="kpi"><small>W-L</small><b>${st.w}-${st.l}</b></div><div class="kpi"><small>Win %</small><b>${st.n?Math.round(st.p*100)+'%':'—'}</b></div></div></div>
+ <div class="card"><h2>My record vs them</h2><div class="kpis"><div class="kpi"><small>W-L</small><b>${RS(st)}</b></div><div class="kpi"><small>Win %</small><b>${PCT(st)}</b></div></div></div>
  <div class="card"><h2>Their usual sides</h2><div>${esc(A)}: <b>${sideCnt(a)}</b></div><div>${esc(B)}: <b>${sideCnt(b)}</b></div>
- <table style="margin-top:8px"><tr><th>Their setup</th><th>My W-L</th><th>Win%</th></tr>${setups.map(([t,f])=>{const o=grpStats(l.filter(f));return`<tr><td>${t}</td><td>${o.w}-${o.l}</td><td>${o.n?Math.round(o.p*100)+'%':'—'}</td></tr>`}).join('')}</table></div>
- <div class="card"><h2>My best partner & side vs them</h2><table><tr><th>Partner</th><th>My side</th><th>W-L</th><th>Win%</th></tr>${cr.map(([c,o],i)=>{const[pn,sd]=c.split('|');return`<tr style="${i===0?'color:#c6f432;font-weight:700':''}"><td>${P(pn)}${i===0?' ⭐':''}</td><td>${sd==='L'?'Left':sd==='R'?'Right':'?'}</td><td>${o.w}-${o.l}</td><td>${Math.round(o.p*100)}%</td></tr>`}).join('')}</table></div>
+ <table style="margin-top:8px"><tr><th>Their setup</th><th>My W-L</th><th>Win%</th></tr>${setups.map(([t,f])=>{const o=grpStats(l.filter(f));return`<tr><td>${t}</td><td>${RS(o)}</td><td>${PCT(o)}</td></tr>`}).join('')}</table></div>
+ <div class="card"><h2>My best partner & side vs them</h2><table><tr><th>Partner</th><th>My side</th><th>W-L</th><th>Win%</th></tr>${cr.map(([c,o],i)=>{const[pn,sd]=c.split('|');return`<tr style="${i===0?'color:#c6f432;font-weight:700':''}"><td>${P(pn)}${i===0?' ⭐':''}</td><td>${sd==='L'?'Left':sd==='R'?'Right':'?'}</td><td>${RS(o)}</td><td>${PCT(o)}</td></tr>`}).join('')}</table></div>
  <div class="card"><h2>Typical scores</h2>${avg?`<div class="mut">Avg games per match: me ${avg[0]} – them ${avg[1]}</div>`:''}${Object.entries(sc).sort((x,y)=>y[1]-x[1]).slice(0,5).map(([t,n])=>`<div>${t}${n>1?' ×'+n:''}</div>`).join('')||'<div class="mut">No scores</div>'}</div>
  <div class="card"><h2>Matches</h2>${l.map(s=>itemHTML(s)).join('')}</div></main>`;
  $('#modal').classList.remove('hidden');$('#modal').scrollTop=0}
@@ -247,13 +254,13 @@ function openPlayer(k){curPlayer=k;const nm=allNames(),name=nm[k]||k,ms=matches(
  const [vw,vl]=rec(vs),[pw,pl]=rec(wi);const g=vs.reduce((a,s)=>{const x=gamesOf(s);return[a[0]+x[0],a[1]+x[1]]},[0,0]);const gp=wi.reduce((a,s)=>{const x=gamesOf(s);return[a[0]+x[0],a[1]+x[1]]},[0,0]);
  const all=ms.filter(s=>vs.includes(s)||wi.includes(s));
  const row=s=>{const isOpp=s.opps.map(key).includes(k);const mate=isOpp?s.opps.find(o=>key(o)!==k):null;const d=sidesOf(s),ms2=n=>SD(sideFor(s,key(n)));
-  return`<div class="item"><div class="top"><div><span class="tag ${s.result}">${s.result==='W'?'WON':'LOST'}</span> <b>${scoreStr(s)||'—'}</b></div><span class="mut">${isOpp?'Opponent':'Partner'}</span></div>
+  return`<div class="item"><div class="top"><div><span class="tag ${s.result}">${RES[s.result]||s.result}</span> <b>${scoreStr(s)||'—'}</b></div><span class="mut">${isOpp?'Opponent':'Partner'}</span></div>
   <div class="mut">${fmtD(s.date)}${TM(s)}${s.club?' · '+esc(s.club):''}</div><div>${esc(name)}${SD(sideFor(s,k))} · Me${SD(d.me)}<br>${isOpp?`Their teammate: ${P(mate)}${ms2(mate)} · My partner: ${P(s.partner)}${ms2(s.partner)}`:`Together vs ${P(s.opps[0])}${ms2(s.opps[0])} & ${P(s.opps[1])}${ms2(s.opps[1])}`}</div></div>`};
  $('#modal').innerHTML=`<header><button class="btn sec" style="width:auto;margin:0;padding:8px 14px" onclick="closeModal()">‹ Back</button><span class="mut">Player</span></header><main>
  <div class="card"><div class="big" style="font-size:28px">${esc(name)}</div><div class="mut">${all.length} matches together or against · last ${all[0]?fmtD(all[0].date):'—'}</div></div>
- <div class="card"><h2>Head-to-head (vs them)</h2><div class="kpis"><div class="kpi"><small>Record</small><b>${vw}-${vl}</b></div><div class="kpi"><small>Win %</small><b>${vs.length?Math.round(vw/vs.length*100)+'%':'—'}</b></div><div class="kpi"><small>Games won</small><b>${g[0]}</b></div><div class="kpi"><small>Games lost</small><b>${g[1]}</b></div></div></div>
- <div class="card"><h2>Partnered with them</h2><div class="kpis"><div class="kpi"><small>Record</small><b>${pw}-${pl}</b></div><div class="kpi"><small>Win %</small><b>${wi.length?Math.round(pw/wi.length*100)+'%':'—'}</b></div><div class="kpi"><small>Games won</small><b>${gp[0]}</b></div><div class="kpi"><small>Games lost</small><b>${gp[1]}</b></div></div></div>
- <div class="card"><h2>Their sides</h2><table><tr><th></th><th>Their W-L (all)</th><th>My W-L vs them</th></tr>${['L','R'].map(x=>{const pr=(playerRecs()[k]||{L:[0,0],R:[0,0]})[x];const v=vs.filter(s=>sideFor(s,k)===x),w=v.filter(s=>s.result==='W').length;return`<tr><td>${x==='L'?'Left':'Right'}</td><td>${wl(pr)}</td><td>${w}-${v.length-w}${v.length?' ('+Math.round(w/v.length*100)+'%)':''}</td></tr>`}).join('')}</table><div class="mut" style="margin-top:6px">Their overall: ${(playerRecs()[k]||{w:0}).w}-${(playerRecs()[k]||{l:0}).l}</div></div>
+ <div class="card"><h2>Head-to-head (vs them)</h2><div class="kpis"><div class="kpi"><small>Record</small><b>${RS(grpStats(vs))}</b></div><div class="kpi"><small>Win %</small><b>${PCT(grpStats(vs))}</b></div><div class="kpi"><small>Games won</small><b>${g[0]}</b></div><div class="kpi"><small>Games lost</small><b>${g[1]}</b></div></div></div>
+ <div class="card"><h2>Partnered with them</h2><div class="kpis"><div class="kpi"><small>Record</small><b>${RS(grpStats(wi))}</b></div><div class="kpi"><small>Win %</small><b>${PCT(grpStats(wi))}</b></div><div class="kpi"><small>Games won</small><b>${gp[0]}</b></div><div class="kpi"><small>Games lost</small><b>${gp[1]}</b></div></div></div>
+ <div class="card"><h2>Their sides</h2><table><tr><th></th><th>Their W-L (all)</th><th>My W-L vs them</th></tr>${['L','R'].map(x=>{const pr=(playerRecs()[k]||{L:[0,0,0],R:[0,0,0]})[x];const vo=grpStats(vs.filter(s=>sideFor(s,k)===x));return`<tr><td>${x==='L'?'Left':'Right'}</td><td>${wl(pr)}</td><td>${RS(vo)}${vo.d?' ('+PCT(vo)+')':''}</td></tr>`}).join('')}</table><div class="mut" style="margin-top:6px">Their overall: ${RS(playerRecs()[k]||{w:0,l:0,t:0})}</div></div>
  <div class="card"><h2>Pairs they've played in (vs me)</h2>${[...new Set(vs.map(pairKey))].map(q=>`<div class="item">${q.split('|').map(x=>esc(nm[x]||x)).join(' & ')} <button class="tag" style="background:rgba(198,244,50,.15);color:#c6f432;border:0" onclick="openPair('${esc(q).replace(/'/g,"\\'")}')">🔎 Scout</button></div>`).join('')||'<div class="mut">None</div>'}</div>
  <div class="card"><h2>All matches</h2>${all.map(row).join('')||'<div class="mut">None</div>'}</div></main>`;
  $('#modal').classList.remove('hidden');$('#modal').scrollTop=0}
@@ -266,7 +273,8 @@ function vSet(){const nd=S.sessions.filter(s=>s.demo).length;
  <div class="card"><h2>Backup</h2><button class="btn" onclick="exportJ()">⬇ Export JSON</button><button class="btn sec" onclick="$('#imp').click()">⬆ Import JSON</button><input id="imp" type="file" accept=".json,application/json" class="hidden" onchange="importJ(this.files[0])"></div>
  <div class="card"><h2>Demo data</h2><div class="demo">DEMO: adds ~30 sample sessions (fake players) so you can try the features. Demo entries are tagged and can be removed without touching your real data.</div>
  <button class="btn sec" onclick="loadDemo()">Load demo data</button>${nd?`<button class="btn red" onclick="if(confirm('Remove ${nd} demo sessions?')){S.sessions=S.sessions.filter(s=>!s.demo);save();render()}">Remove demo data (${nd})</button>`:''}</div>
- <div class="card"><h2>Danger zone</h2><button class="btn red" onclick="if(confirm('Delete ALL sessions?')){S.sessions=[];save();render()}">Delete all data</button></div>`}
+ <div class="card"><h2>My original sessions</h2><div class="mut">Re-adds my first 4 logged sessions (Oct 18–20) if any are missing.</div><button class="btn sec" onclick="seedReal(true);render();alert('Original 4 sessions restored')">Restore my original 4 sessions</button></div>
+ <div class="card"><h2>Danger zone</h2><button class="btn red" onclick="if(confirm('Delete ALL sessions?')){S.sessions=[];S.deletedSeeds=seedList().map(x=>x.id);save();render()}">Delete all data</button></div>`}
 function setUnit(u){if(u===S.unit)return;S.weight=Math.round(u==='kg'?S.weight*0.453592:S.weight/0.453592);S.unit=u;save();vSet()}
 function exportJ(){const b=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='padel-log-'+today()+'.json';a.click()}
 function importJ(f){if(!f)return;f.text().then(t=>{try{const d=JSON.parse(t);const ss=Array.isArray(d)?d:d.sessions;if(!Array.isArray(ss))throw 0;
@@ -279,13 +287,20 @@ function loadDemo(){S.sessions=S.sessions.filter(s=>!s.demo);const R=n=>Math.flo
   if(!tr){const o1=pk(opps);let o2;do o2=pk(opps);while(o2===o1);s.partner=pk(partners);s.opps=[o1,o2];const W=Math.random()<.58;s.result=W?'W':'L';const me=Math.random()<.6?'L':'R',o=pk(['L','R']);s.sides={me,partner:opp(me),o1:o,o2:opp(o)};
    const set=w=>{const l=R(5);return w?[6,l]:[l,6]};let sets=[set(W),set(Math.random()<.5?W:!W)];if((sets[0][0]>sets[0][1])!==(sets[1][0]>sets[1][1]))sets.push(set(W));else sets.push(['','']);s.sets=sets}
   S.sessions.push(s)}save();render()}
-function seedReal(){const r2=S.sessions.find(x=>x.id==='real2');if(r2&&r2.sides&&!r2.sides.o1){r2.sides.o1='L';r2.sides.o2='R';save()}const r3=S.sessions.find(x=>x.id==='real3');if(r3&&r3.sides&&!r3.sides.o1){r3.sides.o1='L';r3.sides.o2='R';save()}const r4=S.sessions.find(x=>x.id==='real4');if(r4&&r4.sides&&!r4.sides.o1){r4.sides.o1='L';r4.sides.o2='R';save()}if(localStorage.getItem('padellog.seeded1'))return;const st=[['',''],['',''],['','']];const M=(id,date,res,sets,partner,opps,sides)=>({id,ts:1,type:'match',date,time:'',mins:90,int:'Normal',club:'',notes:'',partner,opps,result:res,sets:[...sets,...st].slice(0,3),sides});
- const R=[{id:'real1',ts:1,type:'training',date:'2026-10-20',time:'',mins:90,int:'Normal',club:'',notes:'Drills'},
+function seedList(){const st=[['',''],['',''],['','']];const M=(id,date,res,sets,partner,opps,sides)=>({id,ts:1,type:'match',date,time:'',mins:90,int:'Normal',club:'',notes:'',partner,opps,result:res,sets:[...sets,...st].slice(0,3),sides});
+ return[{id:'real1',ts:1,type:'training',date:'2026-10-20',time:'',mins:90,int:'Normal',club:'',notes:'Drills'},
  M('real2','2026-10-19','W',[['7','5'],['6','2']],'Juan',['Todd','JJ'],{me:'R',partner:'L',o1:'L',o2:'R'}),
- M('real3','2026-10-19','L',[['6','7'],['6','4'],['4','4']],'Griff',['Steve','Miles'],{me:'L',partner:'R',o1:'L',o2:'R'}),
- M('real4','2026-10-18','W',[['6','4'],['6','1'],['6','3']],'Griff',['Miles','Ronnie'],{me:'L',partner:'R',o1:'L',o2:'R'})];
- const ids=new Set(S.sessions.map(x=>x.id));R.forEach(x=>{if(!ids.has(x.id))S.sessions.push(x)});save();localStorage.setItem('padellog.seeded1','1')}
+ M('real3','2026-10-19','U',[['6','7'],['6','4'],['4','4']],'Griff',['Steve','Miles'],{me:'L',partner:'R',o1:'L',o2:'R'}),
+ M('real4','2026-10-18','W',[['6','4'],['6','1'],['6','3']],'Griff',['Miles','Ronnie'],{me:'L',partner:'R',o1:'L',o2:'R'})]}
+function seedReal(force){try{if(!Array.isArray(S.sessions))S.sessions=[];if(!Array.isArray(S.deletedSeeds))S.deletedSeeds=[];if(!S.mig)S.mig={};
+ const seeds=seedList();if(force)S.deletedSeeds=[];
+ seeds.forEach(x=>{const cur=S.sessions.find(y=>y.id===x.id);if(!cur){if(!S.deletedSeeds.includes(x.id))S.sessions.push(x)}else{if(cur.sides&&!cur.sides.o1&&x.sides){cur.sides.o1=x.sides.o1;cur.sides.o2=x.sides.o2}}});
+ if(!Array.isArray(S.upcoming))S.upcoming=[];const U1={id:'seedup1',date:'2026-10-21',time:'06:45',mins:90,int:'Normal',club:'',notes:'',partner:'Juan',opps:['Todd','Pietro'],sides:{me:'R',partner:'L',o1:'L',o2:'R'}};
+ if(!S.upcoming.some(x=>x.id===U1.id)&&!S.sessions.some(x=>x.id===U1.id)&&!S.deletedSeeds.includes(U1.id))S.upcoming.push(U1);
+ if(!S.mig.real3U){const r3=S.sessions.find(y=>y.id==='real3');if(r3&&r3.result==='L')r3.result='U';S.mig.real3U=1}
+ if(force){const r3=S.sessions.find(y=>y.id==='real3');if(r3)r3.result='U'}
+ save();localStorage.setItem('padellog.seed.v2','1')}catch(e){console.error('seed failed',e)}}
 seedReal();
 render();
-if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update().catch(()=>{});document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update().catch(()=>{})})}).catch(()=>{});let rl=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(rl)return;rl=true;location.reload()})}
 </script></body></html>

@@ -77,8 +77,11 @@ const bucket=t=>{if(!t)return null;const h=+t.split(':')[0];return h<12?'Morning
 const opp=x=>x==='L'?'R':'L';const SD=x=>x?` <small class="tag" style="background:#2c2c2e;color:#c6f432">${x}</small>`:'';
 const sidesOf=s=>s.sides||{};
 function sideFor(s,k){const d=sidesOf(s);if(key(s.partner)===k)return d.partner;if(key(s.opps[0])===k)return d.o1;if(key(s.opps[1])===k)return d.o2}
-const SIDE_DEFAULTS={griff:'L',juan:'R'}; // my side with that partner
-function autoSide(){const k=key(F.partner);if(!k)return;const last=matches().find(s=>key(s.partner)===k&&s.id!==editId&&sidesOf(s).me);const me=last?sidesOf(last).me:SIDE_DEFAULTS[k];if(!me)return;F.sides.me=me;F.sides.partner=last&&sidesOf(last).partner||opp(me);vLog()}
+const SIDE_DEFAULTS={griff:'L',juan:'R',steve:'L',russ:'L',miles:'L',flor:'L',ronnie:'L',kirby:'L',robbie:'L',simon:'L',adam:'L'}; // my side with that partner
+function autoSide(){const k=key(F.partner);if(!k)return;if(USUAL_SIDE[k]){F.sides.partner=USUAL_SIDE[k];F.sides.me=opp(USUAL_SIDE[k]);vLog();return}const last=matches().find(s=>key(s.partner)===k&&s.id!==editId&&sidesOf(s).me);const me=last?sidesOf(last).me:SIDE_DEFAULTS[k];if(!me)return;F.sides.me=me;F.sides.partner=last&&sidesOf(last).partner||opp(me);vLog()}
+const USUAL_SIDE={ronnie:'R',griff:'R'}; // fixed usual side for any role
+function lastSide(k){if(USUAL_SIDE[k])return USUAL_SIDE[k];const m=matches().find(s=>s.id!==editId&&sideFor(s,k));return m?sideFor(m,k):null}
+function autoOpp(i){const k=key(F.opps[i]);if(!k)return;const sd=lastSide(k);if(!sd)return;const me='o'+(i+1),ot='o'+(2-i);F.sides[me]=sd;const ok=key(F.opps[1-i]),os=ok&&lastSide(ok);F.sides[ot]=os&&os!==sd?os:opp(sd);vLog()}
 function setSide(w,v){F.sides[w]=v;if(w==='me')F.sides.partner=opp(v);if(w==='o1')F.sides.o2=opp(v);vLog()}
 const sideSeg=(w,l)=>`<div class="row" style="align-items:center;margin-top:4px"><span class="mut" style="flex:0 0 90px">${l}</span><div class="seg">${['L','R'].map(v=>`<button class="${F.sides[w]===v?'on':''}" onclick="setSide('${w}','${v}')">${v==='L'?'Left':'Right'}</button>`).join('')}</div></div>`;
 function vLog(){
@@ -90,7 +93,7 @@ function vLog(){
  <input type="number" min="1" style="margin-top:6px" value="${f.mins}" oninput="F.mins=+this.value;upd()" placeholder="minutes">
  <label>Intensity</label><div class="seg">${['Easy','Normal','Hard'].map(v=>`<button class="${f.int===v?'on':''}" onclick="F.int='${v}';vLog()">${v}</button>`).join('')}</div>
  ${m?`<label>Partner</label><input list="names" value="${esc(f.partner)}" oninput="F.partner=this.value" onchange="F.partner=this.value;autoSide()" placeholder="Partner name">
- <label>Opponents</label><div class="row"><input list="names" value="${esc(f.opps[0])}" oninput="F.opps[0]=this.value" placeholder="Opponent 1"><input list="names" value="${esc(f.opps[1])}" oninput="F.opps[1]=this.value" placeholder="Opponent 2"></div>
+ <label>Opponents</label><div class="row"><input list="names" value="${esc(f.opps[0])}" oninput="F.opps[0]=this.value" onchange="F.opps[0]=this.value;autoOpp(0)" placeholder="Opponent 1"><input list="names" value="${esc(f.opps[1])}" oninput="F.opps[1]=this.value" onchange="F.opps[1]=this.value;autoOpp(1)" placeholder="Opponent 2"></div>
  <label>Court sides</label>${sideSeg('me','Me')}${sideSeg('partner','Partner')}${sideSeg('o1','Opponent 1')}${sideSeg('o2','Opponent 2')}
  <label>Score</label><div class="sets"><span></span><small class="mut">Us</small><small class="mut">Them</small>${[0,1,2].map(i=>`<span class="mut">Set ${i+1}</span><input type="number" min="0" value="${f.sets[i][0]}" oninput="F.sets[${i}][0]=this.value"><input type="number" min="0" value="${f.sets[i][1]}" oninput="F.sets[${i}][1]=this.value">`).join('')}</div>
  <label>Result</label><div class="seg"><button class="${f.result==='W'?'on':''}" onclick="F.result='W';vLog()">Won</button><button class="${f.result==='L'?'on':''}" onclick="F.result='L';vLog()">Lost</button></div>
@@ -257,11 +260,11 @@ function loadDemo(){S.sessions=S.sessions.filter(s=>!s.demo);const R=n=>Math.flo
   if(!tr){const o1=pk(opps);let o2;do o2=pk(opps);while(o2===o1);s.partner=pk(partners);s.opps=[o1,o2];const W=Math.random()<.58;s.result=W?'W':'L';const me=Math.random()<.6?'L':'R',o=pk(['L','R']);s.sides={me,partner:opp(me),o1:o,o2:opp(o)};
    const set=w=>{const l=R(5);return w?[6,l]:[l,6]};let sets=[set(W),set(Math.random()<.5?W:!W)];if((sets[0][0]>sets[0][1])!==(sets[1][0]>sets[1][1]))sets.push(set(W));else sets.push(['','']);s.sets=sets}
   S.sessions.push(s)}save();render()}
-function seedReal(){if(localStorage.getItem('padellog.seeded1'))return;const st=[['',''],['',''],['','']];const M=(id,date,res,sets,partner,opps,sides)=>({id,ts:1,type:'match',date,time:'',mins:90,int:'Normal',club:'',notes:'',partner,opps,result:res,sets:[...sets,...st].slice(0,3),sides});
+function seedReal(){const r2=S.sessions.find(x=>x.id==='real2');if(r2&&r2.sides&&!r2.sides.o1){r2.sides.o1='L';r2.sides.o2='R';save()}const r3=S.sessions.find(x=>x.id==='real3');if(r3&&r3.sides&&!r3.sides.o1){r3.sides.o1='L';r3.sides.o2='R';save()}const r4=S.sessions.find(x=>x.id==='real4');if(r4&&r4.sides&&!r4.sides.o1){r4.sides.o1='L';r4.sides.o2='R';save()}if(localStorage.getItem('padellog.seeded1'))return;const st=[['',''],['',''],['','']];const M=(id,date,res,sets,partner,opps,sides)=>({id,ts:1,type:'match',date,time:'',mins:90,int:'Normal',club:'',notes:'',partner,opps,result:res,sets:[...sets,...st].slice(0,3),sides});
  const R=[{id:'real1',ts:1,type:'training',date:'2026-10-20',time:'',mins:90,int:'Normal',club:'',notes:'Drills'},
- M('real2','2026-10-19','W',[['7','5'],['6','2']],'Juan',['Todd','JJ'],{me:'R',partner:'L'}),
- M('real3','2026-10-19','L',[['6','7'],['6','4'],['4','4']],'Griff',['Steve','Miles'],{me:'L',partner:'R'}),
- M('real4','2026-10-18','W',[['6','4'],['6','1'],['6','3']],'Griff',['Miles','Ronnie'],{me:'L',partner:'R'})];
+ M('real2','2026-10-19','W',[['7','5'],['6','2']],'Juan',['Todd','JJ'],{me:'R',partner:'L',o1:'L',o2:'R'}),
+ M('real3','2026-10-19','L',[['6','7'],['6','4'],['4','4']],'Griff',['Steve','Miles'],{me:'L',partner:'R',o1:'L',o2:'R'}),
+ M('real4','2026-10-18','W',[['6','4'],['6','1'],['6','3']],'Griff',['Miles','Ronnie'],{me:'L',partner:'R',o1:'L',o2:'R'})];
  const ids=new Set(S.sessions.map(x=>x.id));R.forEach(x=>{if(!ids.has(x.id))S.sessions.push(x)});save();localStorage.setItem('padellog.seeded1','1')}
 seedReal();
 render();

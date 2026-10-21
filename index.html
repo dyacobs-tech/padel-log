@@ -44,7 +44,36 @@ table{width:100%;border-collapse:collapse}td,th{padding:8px 4px;border-bottom:1p
 const K='padellog.v2';
 let S=JSON.parse(localStorage.getItem(K)||'null')||{sessions:[],weight:176,unit:'lb'};
 if(!S.upcoming)S.upcoming=[];
-const save=()=>localStorage.setItem(K,JSON.stringify(S));
+const save=()=>{localStorage.setItem(K,JSON.stringify(S));try{trackChanges();schedSync()}catch(e){console.error(e)}};
+// ---------- CLOUD SYNC ----------
+const SYNC_URL=localStorage.getItem('padellog.syncurl')||'https://padel-log-sync.dyacobs-tech.deno.net';
+const SK='padellog.sync';let SY=JSON.parse(localStorage.getItem(SK)||'null')||{key:null,last:0,snap:{s:{},u:{},m:''},st:{s:{},u:{},m:0},tomb:{s:{},u:{}},dirty:{s:{},u:{},m:0},status:'Not synced yet',lastOk:0};
+const saveSY=()=>localStorage.setItem(SK,JSON.stringify(SY));
+const hsh=x=>{const t=JSON.stringify(x);let h=5381;for(let i=0;i<t.length;i++)h=(h*33^t.charCodeAt(i))>>>0;return h.toString(36)+t.length};
+const META_F=['profile','weight','unit','startLevels','lefty','deletedSeeds'];const metaOf=()=>Object.fromEntries(META_F.map(f=>[f,S[f]??null]));
+const COLL={s:()=>S.sessions,u:()=>S.upcoming||[]};
+function trackChanges(){const now=Date.now();let ch=false;for(const c of ['s','u']){const seen=new Set();COLL[c]().forEach(x=>{seen.add(x.id);const h=hsh(x);if(SY.snap[c][x.id]!==h){SY.snap[c][x.id]=h;SY.st[c][x.id]=now;SY.dirty[c][x.id]=1;delete SY.tomb[c][x.id];ch=true}});
+  Object.keys(SY.snap[c]).forEach(id=>{if(!seen.has(id)){delete SY.snap[c][id];delete SY.st[c][id];SY.tomb[c][id]=now;SY.dirty[c][id]=1;ch=true}})}
+ const mh=hsh(metaOf());if(SY.snap.m!==mh){SY.snap.m=mh;SY.st.m=now;SY.dirty.m=1;ch=true}if(ch)saveSY()}
+let _sT=null,_syncing=false;function schedSync(){clearTimeout(_sT);_sT=setTimeout(()=>syncNow(),1500)}
+function setSyncStatus(t){SY.status=t;saveSY();const e=$('#syncstat');if(e)e.innerHTML=syncStatusHTML()}
+async function syncNow(){if(_syncing||SYNC_URL.startsWith('__'))return;if(!navigator.onLine){setSyncStatus('Offline — will sync when back online');return}_syncing=true;
+ try{if(!SY.key){setSyncStatus('Creating sync account…');const r=await fetch(SYNC_URL+'/register',{method:'POST'});if(!r.ok)throw new Error('register '+r.status);const j=await r.json();SY.key=j.key;SY.acct=j.acct;SY.last=0;
+   // first upload: everything local is dirty
+   for(const c of ['s','u'])COLL[c]().forEach(x=>{SY.dirty[c][x.id]=1;SY.st[c][x.id]=SY.st[c][x.id]||Date.now()});SY.dirty.m=1;SY.st.m=SY.st.m||Date.now();saveSY()}
+  setSyncStatus('Syncing…');const changes=[];for(const c of ['s','u'])Object.keys(SY.dirty[c]).forEach(id=>{const x=COLL[c]().find(y=>y.id===id);if(x)changes.push({coll:c,id,updatedAt:SY.st[c][id]||Date.now(),data:x});else if(SY.tomb[c][id])changes.push({coll:c,id,updatedAt:SY.tomb[c][id],deleted:true})});
+  const body={since:SY.last,changes,meta:SY.dirty.m?{updatedAt:SY.st.m||Date.now(),data:metaOf()}:null};
+  const r=await fetch(SYNC_URL+'/sync',{method:'POST',headers:{'authorization':'Bearer '+SY.key,'content-type':'application/json'},body:JSON.stringify(body)});
+  if(r.status===401){SY.key=null;saveSY();throw new Error('sync key rejected')}if(!r.ok)throw new Error('sync '+r.status);const j=await r.json();
+  SY.dirty={s:{},u:{},m:0};let changed=false;
+  for(const x of j.recs||[]){const c=x.coll;if(!COLL[c])continue;const loc=SY.st[c][x.id]||SY.tomb[c][x.id]||0;if(x.updatedAt<=loc)continue;
+   if(c==='u'&&!S.upcoming)S.upcoming=[];const arr=c==='s'?'sessions':'upcoming';S[arr]=S[arr].filter(y=>y.id!==x.id);
+   if(x.deleted){SY.tomb[c][x.id]=x.updatedAt;delete SY.snap[c][x.id];delete SY.st[c][x.id]}else{S[arr].push(x.data);SY.snap[c][x.id]=hsh(x.data);SY.st[c][x.id]=x.updatedAt;delete SY.tomb[c][x.id]}changed=true}
+  if(j.meta&&j.meta.updatedAt>(SY.st.m||0)){META_F.forEach(f=>{if(j.meta.data&&f in j.meta.data&&j.meta.data[f]!=null)S[f]=j.meta.data[f]});SY.st.m=j.meta.updatedAt;SY.snap.m=hsh(metaOf());changed=true}
+  SY.last=j.now;SY.lastOk=Date.now();localStorage.setItem(K,JSON.stringify(S));setSyncStatus(`Synced ✓ ${changes.length} up · ${(j.recs||[]).length} down`);if(changed){_rc=null;render()}}
+ catch(e){setSyncStatus('Sync failed: '+e.message+' — will retry')}finally{_syncing=false}}
+function syncStatusHTML(){return`<div><b>${esc(SY.status)}</b></div><div class="mut">${SY.lastOk?'Last synced '+new Date(SY.lastOk).toLocaleString():'Never synced'}${SY.acct?' · account '+SY.acct.slice(0,8):''}</div>`}
+function linkKey(v){v=(v||'').trim();if(!/^[0-9a-f]{48}$/.test(v))return alert('That doesn’t look like a sync key');if(!confirm('Link this device to that sync account? Local data will be merged into it.'))return;SY.key=v;SY.acct=null;SY.last=0;for(const c of ['s','u'])COLL[c]().forEach(x=>{SY.dirty[c][x.id]=1});SY.dirty.m=1;saveSY();syncNow().then(()=>vSet())}
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pad=n=>String(n).padStart(2,'0');
@@ -143,7 +172,7 @@ function vLog(){
  <label>Opponents</label><div class="row"><input list="names" value="${esc(f.opps[0])}" oninput="F.opps[0]=this.value" onchange="F.opps[0]=this.value;autoGT();autoOpp(0)" placeholder="Opponent 1"><input list="names" value="${esc(f.opps[1])}" oninput="F.opps[1]=this.value" onchange="F.opps[1]=this.value;autoGT();autoOpp(1)" placeholder="Opponent 2"></div>
  <label>Game type</label><div class="seg" id="gtseg">${gtBtns()}</div><div class="mut" style="margin-top:4px">Suggested from the other 3 players' avg rating (≥4.5 → Advanced); tap to override.</div>
  <label>Court sides</label>${sideSeg('me','Me')}${sideSeg('partner','Partner')}${sideSeg('o1','Opponent 1')}${sideSeg('o2','Opponent 2')}
- ${up?'':`<label>Score</label><div class="sets"><span></span><small class="mut">Us</small><small class="mut">Them</small>${[0,1,2].map(i=>`<span class="mut">Set ${i+1}</span><input type="number" min="0" value="${f.sets[i][0]}" oninput="F.sets[${i}][0]=this.value" onchange="suggestRes()"><input type="number" min="0" value="${f.sets[i][1]}" oninput="F.sets[${i}][1]=this.value" onchange="suggestRes()">`).join('')}</div>
+ ${up?'':`<label>Score</label><div class="sets"><span></span><small class="mut">Us</small><small class="mut">Them</small>${F.sets.map((_,i)=>`<span class="mut">Set ${i+1}</span><input type="number" min="0" value="${f.sets[i][0]}" oninput="F.sets[${i}][0]=this.value" onchange="suggestRes()"><input type="number" min="0" value="${f.sets[i][1]}" oninput="F.sets[${i}][1]=this.value" onchange="suggestRes()">`).join('')}</div>${F.sets.length<5?`<button class="btn sec" style="margin-top:8px;padding:8px" onclick="F.sets.push(['','']);vLog()">+ Add set ${F.sets.length+1}</button>`:''}
  <label>Result</label><div class="seg" id="resseg">${resBtns()}</div><div class="mut" style="margin-top:4px">Auto-suggested from the score; tap to override.</div>`}
  <label>Club / court</label><input value="${esc(f.club)}" oninput="F.club=this.value" placeholder="Club or court">`:`<label>Club / location</label><input value="${esc(f.club)}" oninput="F.club=this.value">`}
  <label>How I played</label><div class="seg" id="grseg">${grBtns()}</div>
@@ -409,6 +438,9 @@ function vSet(){const nd=S.sessions.filter(s=>s.demo).length;
  <label>My start rating (0–7) · current ${rt('me').toFixed(2)}</label><input type="number" step="0.5" value="${startLevel('me')}" onchange="setStart('me',this.value)">
  <label>Resting HR (bpm)</label><input type="number" value="${pf.rhr??''}" onchange="S.profile.rhr=+this.value;save()">
  <div class="mut" style="margin-top:8px">${b?`Lean mass ${(lbmKg()/0.453592).toFixed(1)} lb · BMR ${Math.round(b)} kcal/day (Katch-McArdle) · ${(b/24).toFixed(1)} kcal per MET-hour.<br>`:''}Calories = MET × (BMR ÷ 24) × hours. MET 7 match / 6 training; Easy ×0.8, Hard ×1.2. Falls back to MET × kg if body fat is blank. A manual calorie value on a session always wins.</div></div>
+ <div class="card"><h2>☁️ Cloud sync</h2><div id="syncstat">${syncStatusHTML()}</div><button class="btn" onclick="syncNow().then(()=>{const e=$('#syncstat');if(e)e.innerHTML=syncStatusHTML()})">Sync now</button>
+ <details style="margin-top:12px"><summary class="mut" style="cursor:pointer">Link another device</summary><div class="mut" style="margin-top:8px">Each device syncs automatically. To share one account across devices (e.g. Safari and the home-screen app), copy this device's sync key into the other device.</div>
+ <label>This device's sync key</label><input readonly value="${SY.key||'(created on first sync)'}" onclick="this.select()"><label>Use a key from another device</label><div class="row"><input id="linkk" placeholder="paste sync key"><button class="btn sec" style="margin:0;flex:0 0 80px" onclick="linkKey($('#linkk').value)">Link</button></div></details></div>
  <div class="card"><h2>Backup</h2><button class="btn" onclick="exportJ()">⬇ Export JSON</button><button class="btn sec" onclick="$('#imp').click()">⬆ Import JSON</button><input id="imp" type="file" accept=".json,application/json" class="hidden" onchange="importJ(this.files[0])"></div>
  <div class="card"><h2>Demo data</h2><div class="demo">DEMO: adds ~30 sample sessions (fake players) so you can try the features. Demo entries are tagged and can be removed without touching your real data.</div>
  <button class="btn sec" onclick="loadDemo()">Load demo data</button>${nd?`<button class="btn red" onclick="if(confirm('Remove ${nd} demo sessions?')){S.sessions=S.sessions.filter(s=>!s.demo);save();render()}">Remove demo data (${nd})</button>`:''}</div>
@@ -433,7 +465,7 @@ function seedList(){const st=[['',''],['',''],['','']];const M=(id,date,res,sets
  M('real4','2026-10-18','W',[['6','4'],['6','1'],['6','3']],'Griff',['Miles','Ronnie'],{me:'L',partner:'R',o1:'L',o2:'R'})]}
 function seedReal(force){try{if(!Array.isArray(S.sessions))S.sessions=[];if(!Array.isArray(S.deletedSeeds))S.deletedSeeds=[];if(!S.mig)S.mig={};
  const seeds=seedList();if(force)S.deletedSeeds=[];
- seeds.forEach(x=>{const cur=S.sessions.find(y=>y.id===x.id);if(!cur){if(!S.deletedSeeds.includes(x.id))S.sessions.push(x)}else{if(cur.sides&&!cur.sides.o1&&x.sides){cur.sides.o1=x.sides.o1;cur.sides.o2=x.sides.o2}}});
+ seeds.forEach(x=>{const cur=S.sessions.find(y=>y.id===x.id);if(!cur){if(!S.deletedSeeds.includes(x.id)&&!(typeof SY!=='undefined'&&SY.tomb.s[x.id]&&!force))S.sessions.push(x)}else{if(cur.sides&&!cur.sides.o1&&x.sides){cur.sides.o1=x.sides.o1;cur.sides.o2=x.sides.o2}}});
  if(!Array.isArray(S.upcoming))S.upcoming=[];const U1={id:'seedup1',date:'2026-10-21',time:'06:45',mins:90,int:'Normal',club:'',notes:'',partner:'Juan',opps:['Todd','Pietro'],sides:{me:'R',partner:'L',o1:'L',o2:'R'}};
  if(!S.upcoming.some(x=>x.id===U1.id)&&!S.sessions.some(x=>x.id===U1.id)&&!S.deletedSeeds.includes(U1.id))S.upcoming.push(U1);
  if(!S.mig.profile1){S.profile=Object.assign({bf:13.5,age:42,heightIn:68,sex:'M',rhr:44},S.profile||{});S.weight=145;S.unit='lb';S.mig.profile1=1}
@@ -443,5 +475,6 @@ function seedReal(force){try{if(!Array.isArray(S.sessions))S.sessions=[];if(!Arr
  save();localStorage.setItem('padellog.seed.v2','1')}catch(e){console.error('seed failed',e)}}
 seedReal();
 render();
+try{trackChanges()}catch(e){}setTimeout(()=>syncNow(),800);document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncNow()});addEventListener('online',()=>syncNow());setInterval(()=>{if(!document.hidden)syncNow()},120000);
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update().catch(()=>{});document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update().catch(()=>{})})}).catch(()=>{});let rl=!navigator.serviceWorker.controller;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(rl)return;rl=true;location.reload()})}
 </script></body></html>

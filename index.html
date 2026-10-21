@@ -55,7 +55,10 @@ const fmtD=s=>parse(s).toLocaleDateString(undefined,{weekday:'short',month:'shor
 const norm=n=>(n||'').trim().replace(/\s+/g,' ');const key=n=>norm(n).toLowerCase();
 const uid=()=>Math.random().toString(36).slice(2,10);
 const kg=()=>S.unit==='kg'?S.weight:S.weight*0.453592;
-function cals(type,mins,int){let m=type==='match'?7:6;m*=int==='Easy'?.8:int==='Hard'?1.2:1;return Math.round(m*kg()*mins/60)}
+function lbmKg(){const bf=+((S.profile||{}).bf);return bf>0&&bf<70?kg()*(1-bf/100):null}
+function bmr(){const l=lbmKg();return l?370+21.6*l:null} // Katch-McArdle
+function cals(type,mins,int){let m=type==='match'?7:6;m*=int==='Easy'?.8:int==='Hard'?1.2:1;const b=bmr();const perMetHr=b?b/24:kg();return Math.round(m*perMetHr*mins/60)}
+const sessCal=s=>+s.kcal>0?+s.kcal:cals(s.type,s.mins,s.int);
 const sorted=()=>[...S.sessions].sort((a,b)=>b.date.localeCompare(a.date)||(b.time||'').localeCompare(a.time||'')||(b.ts||0)-(a.ts||0));
 const matches=()=>sorted().filter(s=>s.type==='match');
 // canonical display name for a key
@@ -64,7 +67,7 @@ const P=n=>n?`<span class="p" onclick="event.stopPropagation();openPlayer('${esc
 const scoreStr=s=>(s.sets||[]).filter(x=>x&&(x[0]!==''||x[1]!=='')).map(x=>x[0]+'-'+x[1]).join(', ');
 const gamesOf=s=>(s.sets||[]).reduce((a,x)=>[a[0]+(+x[0]||0),a[1]+(+x[1]||0)],[0,0]);
 
-let tab="log",editId=null,F=null;
+let tab="stats",editId=null,F=null;
 const ICONS={"log": "<path d=\"M12 5v14M5 12h14\"/>", "cal": "<rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"3\"/><path d=\"M3 10h18M8 3v4M16 3v4\"/>", "stats": "<path d=\"M4 20V10M10 20V4M16 20v-7M22 20H2\"/>", "match": "<circle cx=\"9\" cy=\"8\" r=\"3.5\"/><path d=\"M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5\"/><circle cx=\"17\" cy=\"9\" r=\"2.5\"/><path d=\"M17 14c2.4 0 4 1.6 4.6 4.5\"/>", "hist": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 2\"/>", "set": "<circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z\"/>"};
 const TABS=[['log','➕','Log'],['cal','📅','Calendar'],['stats','📊','Stats'],['match','🤝','Matchups'],['hist','📜','History'],['set','⚙️','Settings']];
 function renderNav(){$('#nav').innerHTML=TABS.map(t=>`<button class="${tab===t[0]?'on':''}" onclick="go('${t[0]}')"><svg viewBox="0 0 24 24">${ICONS[t[0]]}</svg>${t[2]}</button>`).join('')}
@@ -107,7 +110,8 @@ function vLog(){
  <label>Result</label><div class="seg" id="resseg">${resBtns()}</div><div class="mut" style="margin-top:4px">Auto-suggested from the score; tap to override.</div>`}
  <label>Club / court</label><input value="${esc(f.club)}" oninput="F.club=this.value" placeholder="Club or court">`:`<label>Club / location</label><input value="${esc(f.club)}" oninput="F.club=this.value">`}
  <label>Notes</label><textarea rows="2" oninput="F.notes=this.value">${esc(f.notes)}</textarea>
- <div class="kpi" style="margin-top:12px"><small>Estimated calories</small><b id="calest"></b></div>
+ <div class="kpi" style="margin-top:12px"><small>Estimated calories (lean-mass MET)</small><b id="calest"></b></div>
+ <details style="margin-top:8px"><summary class="mut" style="cursor:pointer">More (manual calories, avg HR)</summary><div class="row"><div><label>Calories override</label><input type="number" min="0" placeholder="auto" value="${f.kcal||''}" oninput="F.kcal=this.value"></div><div><label>Avg HR (optional)</label><input type="number" min="0" placeholder="bpm" value="${f.hr||''}" oninput="F.hr=this.value"></div></div></details>
  <button class="btn" onclick="saveForm()">${up?(f.upEdit?'Save upcoming match':'Schedule match'):f.upId?'Log result':editId?'Save changes':'Log session'}</button>
  ${editId||f.upEdit||f.upId?`<button class="btn sec" onclick="editId=null;F=blank();vLog()">${f.upId?'Not now':'Cancel edit'}</button>`:''}</div>`;upd()}
 function upd(){const e=$('#calest');if(e)e.textContent=cals(F.type==='upcoming'?'match':F.type,F.mins||0,F.int)+' kcal'}
@@ -115,17 +119,17 @@ function saveForm(){const f=F;if(!f.date||!(f.mins>0))return alert('Date and dur
  if(f.type==='upcoming'){const nm=allNames();const c=n=>nm[key(n)]||norm(n);const u={id:f.upEdit||uid(),date:f.date,time:f.time||'',mins:+f.mins,int:f.int,club:norm(f.club),notes:f.notes.trim(),partner:c(f.partner),opps:f.opps.map(c),sides:{...f.sides}};
   S.upcoming=S.upcoming.filter(x=>x.id!==u.id);S.upcoming.push(u);save();editId=null;F=blank();selDay=u.date;go('log');return}
  if(f.upId)S.upcoming=S.upcoming.filter(x=>x.id!==f.upId);
- const s={id:editId||f.upId||uid(),ts:Date.now(),type:f.type,date:f.date,time:f.time||'',mins:+f.mins,int:f.int,club:norm(f.club),notes:f.notes.trim()};
+ const s={id:editId||f.upId||uid(),ts:Date.now(),type:f.type,date:f.date,time:f.time||'',mins:+f.mins,int:f.int,club:norm(f.club),notes:f.notes.trim()};if(+f.kcal>0)s.kcal=+f.kcal;if(+f.hr>0)s.hr=+f.hr;
  if(f.type==='match'){const nm=allNames();const c=n=>nm[key(n)]||norm(n);s.partner=c(f.partner);s.opps=f.opps.map(c);s.sets=f.sets;s.result=f.result;s.sides={...f.sides}}
  const old=S.sessions.find(x=>x.id===editId);if(old){s.demo=old.demo;s.ts=old.ts}
  S.sessions=S.sessions.filter(x=>x.id!==s.id);S.sessions.push(s);save();editId=null;F=blank();go('hist')}
 function editS(id){const s=S.sessions.find(x=>x.id===id);editId=id;F=Object.assign(blank(),JSON.parse(JSON.stringify(s)));if(!F.sets)F.sets=[['',''],['',''],['','']];if(!F.opps)F.opps=['',''];if(!F.sides)F.sides=blank().sides;go('log')}
-function delS(id){if(!confirm('Delete this session?'))return;if(/^real\d$/.test(id)){S.deletedSeeds=S.deletedSeeds||[];if(!S.deletedSeeds.includes(id))S.deletedSeeds.push(id)}S.sessions=S.sessions.filter(x=>x.id!==id);save();if(!$('#modal').classList.contains('hidden')&&curPlayer)openPlayer(curPlayer);render()}
+function delS(id){if(!confirm('Delete this session?'))return;if(/^real\d$/.test(id)){S.deletedSeeds=S.deletedSeeds||[];if(!S.deletedSeeds.includes(id))S.deletedSeeds.push(id)}S.sessions=S.sessions.filter(x=>x.id!==id);save();if(!$('#modal').classList.contains('hidden')){if(curPlayer)openPlayer(curPlayer);else closeModal()}render()}
 
-function itemHTML(s,showDate=true){const c=cals(s.type,s.mins,s.int);
+function itemHTML(s,showDate=true){const c=sessCal(s);
  if(s.type==='match')return`<div class="item"><div class="top"><div><span class="tag ${s.result}">${RES[s.result]||s.result}</span> <b>${scoreStr(s)||'—'}</b></div><div class="acts"><button onclick="editS('${s.id}')">Edit</button><button onclick="delS('${s.id}')">Del</button></div></div>
- <div>Me${SD(sidesOf(s).me)} w/ ${P(s.partner)}${SD(sidesOf(s).partner)} vs ${P(s.opps[0])}${SD(sidesOf(s).o1)} & ${P(s.opps[1])}${SD(sidesOf(s).o2)}</div><div class="mut">${showDate?fmtD(s.date)+TM(s):(s.time?s.time+' ('+bucket(s.time)+')':'')} · ${s.mins} min · ${s.int} · ${c} kcal${s.club?' · '+esc(s.club):''}${s.demo?' · demo':''}</div>${s.notes?`<div class="mut">📝 ${esc(s.notes)}</div>`:''}</div>`;
- return`<div class="item"><div class="top"><div><span class="tag T">TRAINING</span></div><div class="acts"><button onclick="editS('${s.id}')">Edit</button><button onclick="delS('${s.id}')">Del</button></div></div><div class="mut">${showDate?fmtD(s.date)+TM(s):(s.time?s.time+' ('+bucket(s.time)+')':'')} · ${s.mins} min · ${s.int} · ${c} kcal${s.club?' · '+esc(s.club):''}${s.demo?' · demo':''}</div>${s.notes?`<div class="mut">📝 ${esc(s.notes)}</div>`:''}</div>`}
+ <div>Me${SD(sidesOf(s).me)} w/ ${P(s.partner)}${SD(sidesOf(s).partner)} vs ${P(s.opps[0])}${SD(sidesOf(s).o1)} & ${P(s.opps[1])}${SD(sidesOf(s).o2)}</div><div class="mut">${[showDate?fmtD(s.date)+TM(s):(s.time?s.time+' ('+bucket(s.time)+')':''),s.mins+' min'].filter(Boolean).join(' · ')} · ${s.int} · ${c} kcal${s.kcal?' (manual)':''}${s.hr?' · ♥ '+s.hr:''}${s.club?' · '+esc(s.club):''}${s.demo?' · demo':''}</div>${s.notes?`<div class="mut">📝 ${esc(s.notes)}</div>`:''}</div>`;
+ return`<div class="item"><div class="top"><div><span class="tag T">TRAINING</span></div><div class="acts"><button onclick="editS('${s.id}')">Edit</button><button onclick="delS('${s.id}')">Del</button></div></div><div class="mut">${[showDate?fmtD(s.date)+TM(s):(s.time?s.time+' ('+bucket(s.time)+')':''),s.mins+' min'].filter(Boolean).join(' · ')} · ${s.int} · ${c} kcal${s.kcal?' (manual)':''}${s.hr?' · ♥ '+s.hr:''}${s.club?' · '+esc(s.club):''}${s.demo?' · demo':''}</div>${s.notes?`<div class="mut">📝 ${esc(s.notes)}</div>`:''}</div>`}
 
 // ---------- UPCOMING ----------
 const upEnd=u=>{const d=parse(u.date);const[h,mi]=(u.time||'23:59').split(':').map(Number);d.setHours(h,mi+(+u.mins||0));return d};
@@ -162,7 +166,7 @@ let calG='week',calOff=0,trG='month';
 function perKey(d,g){const y=d.getFullYear(),m=d.getMonth();return g==='week'?iso(weekStart(d)):g==='month'?y+'-'+pad(m+1):g==='quarter'?y+'-Q'+(Math.floor(m/3)+1):''+y}
 function perList(g,n){const out=[],d=new Date();d.setHours(0,0,0,0);for(let i=n-1;i>=0;i--){const x=new Date(d);if(g==='week')x.setDate(x.getDate()-7*i);else if(g==='month'){x.setDate(1);x.setMonth(x.getMonth()-i)}else if(g==='quarter'){x.setDate(1);x.setMonth(x.getMonth()-3*i)}else x.setFullYear(x.getFullYear()-i);out.push(perKey(x,g))}return out}
 function perAgg(list){const ms=list.filter(s=>s.type==='match'),o=grpStats(ms);const pct=f=>{const q=grpStats(ms.filter(f));return q.d?Math.round(q.p*100):null};const g=ms.reduce((a,s)=>{const x=gamesOf(s);return[a[0]+x[0],a[1]+x[1]]},[0,0]);
- return{n:ms.length,w:o.w,l:o.l,win:o.d?Math.round(o.p*100):null,gp:g[0]+g[1]?Math.round(g[0]/(g[0]+g[1])*100):null,hrs:+(list.reduce((a,s)=>a+s.mins,0)/60).toFixed(1),cal:list.reduce((a,s)=>a+cals(s.type,s.mins,s.int),0),L:pct(s=>sidesOf(s).me==='L'),R:pct(s=>sidesOf(s).me==='R'),Mo:pct(s=>bucket(s.time)==='Morning'),Af:pct(s=>bucket(s.time)==='Afternoon'),Ev:pct(s=>bucket(s.time)==='Evening')}}
+ return{n:ms.length,w:o.w,l:o.l,win:o.d?Math.round(o.p*100):null,gp:g[0]+g[1]?Math.round(g[0]/(g[0]+g[1])*100):null,hrs:+(list.reduce((a,s)=>a+s.mins,0)/60).toFixed(1),cal:list.reduce((a,s)=>a+sessCal(s),0),L:pct(s=>sidesOf(s).me==='L'),R:pct(s=>sidesOf(s).me==='R'),Mo:pct(s=>bucket(s.time)==='Morning'),Af:pct(s=>bucket(s.time)==='Afternoon'),Ev:pct(s=>bucket(s.time)==='Evening')}}
 const arrow=(a,b,u='')=>a==null||b==null?'':a>b?` <span style="color:var(--win)">▲${Math.round(a-b)}${u}</span>`:a<b?` <span style="color:var(--loss)">▼${Math.round(b-a)}${u}</span>`:' <span class="mut">▬</span>';
 function renderTrends(){const g=trG,n={week:12,month:12,quarter:8,year:5}[g],keys=perList(g,n),by={};S.sessions.forEach(s=>{const k=perKey(parse(s.date),g);(by[k]=by[k]||[]).push(s)});const A=keys.map(k=>perAgg(by[k]||[]));
  const ds=(lab,f,c,ax)=>({label:lab,data:A.map(f),borderColor:c,backgroundColor:c,tension:.3,spanGaps:true,yAxisID:ax||'y'});const mk=(id,sets,y)=>charts.push(new Chart($('#'+id),{type:'line',data:{labels:keys,datasets:sets},options:{plugins:{legend:{display:sets.length>1,labels:{boxWidth:10}}},scales:y||{y:{beginAtZero:true}}}}));const P100={y:{min:0,max:100}};
@@ -178,7 +182,7 @@ function weekStart(d){const x=new Date(d);x.setDate(x.getDate()-((x.getDay()+6)%
 function vStats(){const ms=matches(),w=ms.filter(s=>s.result==='W').length;const now=new Date(),mk=iso(now).slice(0,7);
  const hrsM=S.sessions.filter(s=>s.date.startsWith(mk)).reduce((a,s)=>a+s.mins,0)/60;
  const weeks=new Set(S.sessions.map(s=>iso(weekStart(parse(s.date)))));let st=0,ws=weekStart(now);if(!weeks.has(iso(ws)))ws.setDate(ws.getDate()-7);while(weeks.has(iso(ws))){st++;ws.setDate(ws.getDate()-7)}
- const totC=S.sessions.reduce((a,s)=>a+cals(s.type,s.mins,s.int),0);
+ const totC=S.sessions.reduce((a,s)=>a+sessCal(s),0);
  $('#app').innerHTML=`<div class="kpis"><div class="kpi"><small>Win rate</small><b>${PCT(grpStats(ms))}</b><small>${RS(grpStats(ms))}</small></div><div class="kpi"><small>Hours this month</small><b>${hrsM.toFixed(1)}</b></div><div class="kpi"><small>Week streak</small><b>${st}</b></div>${['L','R'].map(x=>{const o=grpStats(ms.filter(s=>sidesOf(s).me===x));return`<div class="kpi"><small>Me on ${x==='L'?'Left':'Right'}</small><b>${PCT(o)}</b><small>${RS(o)}</small></div>`}).join('')}<div class="kpi"><small>Total calories</small><b>${totC.toLocaleString()}</b></div></div>
  <div class="card"><h2>Last 8 matches</h2>${ms.slice(0,8).reverse().map(s=>`<span class="pill ${s.result}">${s.result}</span>`).join('')||'<span class="mut">No matches</span>'}</div>
  ${bestHTML(ms)}
@@ -194,7 +198,7 @@ function vStats(){const ms=matches(),w=ms.filter(s=>s.result==='W').length;const
  week:{n:12,step:(d,i)=>{d.setDate(d.getDate()+7*i)},lab:d=>d.toLocaleDateString(undefined,{month:'short',day:'numeric'}),k:d=>iso(weekStart(d)),base:()=>weekStart(new Date())},
  month:{n:12,step:(d,i)=>{d.setMonth(d.getMonth()+i)},lab:d=>d.toLocaleDateString(undefined,{month:'short',year:'2-digit'}),k:d=>iso(d).slice(0,7),base:()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),1)}},
  year:{n:5,step:(d,i)=>{d.setFullYear(d.getFullYear()+i)},lab:d=>''+d.getFullYear(),k:d=>''+d.getFullYear(),base:()=>new Date(new Date().getFullYear(),0,1)}}[calG];
- const agg={};S.sessions.forEach(s=>{const k=cfg.k(parse(s.date));agg[k]=(agg[k]||0)+cals(s.type,s.mins,s.int)});
+ const agg={};S.sessions.forEach(s=>{const k=cfg.k(parse(s.date));agg[k]=(agg[k]||0)+sessCal(s)});
  const labs=[],vals=[];for(let i=cfg.n-1;i>=0;i--){const d=cfg.base();cfg.step(d,calOff*cfg.n-i);labs.push(cfg.lab(d));vals.push(agg[cfg.k(d)]||0)}
  $('#calrange').textContent=labs[0]+' – '+labs[labs.length-1];const tot=vals.reduce((a,b)=>a+b,0);$('#caltot').textContent=`Total ${tot.toLocaleString()} kcal · avg ${Math.round(tot/cfg.n)} per ${calG}`;
  renderTrends();
@@ -210,12 +214,17 @@ function bestHTML(ms){const B=['Morning','Afternoon','Evening'].map(b=>[b,grpSta
  const tbl=(rows,hl)=>`<table><tr><th></th><th>W-L</th><th>Win%</th><th>Games%</th><th>#</th></tr>${rows.map(([b,o])=>`<tr style="${hl&&best&&best[0]===b?'color:#c6f432;font-weight:700':''}"><td>${b}${hl&&best&&best[0]===b?' ⭐':''}</td><td>${RS(o)}</td><td>${PCT(o)}</td><td>${o.gp}</td><td>${o.n}</td></tr>`).join('')}</table>`;
  return`<div class="card"><h2>⏰ When I play best</h2>${tbl(B,1)}<div class="mut" style="margin:6px 0 12px">Morning &lt;12:00 · Afternoon 12–17 · Evening &gt;17:00${best?` · Best: <b style="color:#c6f432">${best[0]}</b>`:''}</div><h2>By day of week</h2>${tbl(D,0)}</div>`}
 // ---------- MATCHUPS ----------
-let mSub='partners';
+let mSub='bydate',mF='';
 function playerRecs(){const R={};const add=(n,side,res)=>{const k=key(n);if(!k)return;const o=R[k]=R[k]||{w:0,l:0,t:0,L:[0,0,0],R:[0,0,0]};const ix=res==='W'?0:res==='L'?1:2;o['wlt'[ix]]++;if(side)o[side][ix]++};
  matches().forEach(s=>{const d=sidesOf(s),fl={W:'L',L:'W'}[s.result]||s.result;add(s.partner,d.partner,s.result);add(s.opps[0],d.o1,fl);add(s.opps[1],d.o2,fl)});return R}
 const wl=a=>a[2]?`${a[0]}-${a[1]}-${a[2]}`:`${a[0]}-${a[1]}`;
 function rec(list){const o=grpStats(list);return[o.w,o.l,o]}
-function vMatch(){const ms=matches(),nm=allNames();if(mSub==='players'){const R=playerRecs();const rows=Object.entries(R).sort((a,b)=>(b[1].w+b[1].l)-(a[1].w+a[1].l));
+function vMatch(){const ms=matches(),nm=allNames();if(mSub==='matches'||mSub==='bydate'){const fk=key(mF),l=fk?ms.filter(s=>key(s.partner)===fk||s.opps.map(key).includes(fk)):ms;
+ const nmS=(n,sd)=>`<span style="white-space:nowrap">${esc(norm(n))||'—'}${SD(sd)}</span>`;
+ $('#app').innerHTML=`<div class="card">${segM()}<div class="row" style="margin-top:12px;align-items:center"><input list="names" placeholder="Filter by player" value="${esc(mF)}" onchange="mF=this.value;vMatch()">${mF?`<button class="btn sec" style="margin:0;flex:0 0 72px;padding:12px 8px" onclick="mF='';vMatch()">Clear</button>`:''}</div>
+ <div class="mut" style="margin:8px 0 4px">${l.length} match${l.length===1?'':'es'}${fk?' with '+esc(nm[fk]||mF):''}${fk&&l.length?' · '+RS(grpStats(l)):''}</div>
+ ${mSub==='bydate'?[...new Set(l.map(s=>s.date))].map(dt=>{const g=l.filter(s=>s.date===dt);return`<div style="margin-top:16px"><div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:17px">${fmtD(dt)}</b><span class="mut">${RS(grpStats(g))}</span></div>${g.map(s=>itemHTML(s,false)).join('')}</div>`}).join('')||'<div class="mut" style="margin-top:8px">No matches.</div>':l.map(s=>{const d=sidesOf(s);return`<div class="item mrow" style="cursor:pointer" onclick="openMatch('${s.id}')"><div class="top"><div><b>${parse(s.date).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}</b> <span class="mut">${s.time?s.time+' · '+bucket(s.time):''}</span></div><span class="tag ${s.result}">${RES[s.result]||s.result}</span></div>
+ <div style="display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center"><div>${nmS('Me',d.me)} & ${nmS(s.partner,d.partner)}</div><b style="text-align:right">${(s.sets||[]).filter(x=>x[0]!==''||x[1]!=='').map(x=>x[0]).join(' ')}</b><div class="mut">${nmS(s.opps[0],d.o1)} & ${nmS(s.opps[1],d.o2)}</div><span class="mut" style="text-align:right">${(s.sets||[]).filter(x=>x[0]!==''||x[1]!=='').map(x=>x[1]).join(' ')}</span></div></div>`}).join('')||'<div class="mut" style="margin-top:8px">No matches.</div>'}</div>`;return}if(mSub==='players'){const R=playerRecs();const rows=Object.entries(R).sort((a,b)=>(b[1].w+b[1].l)-(a[1].w+a[1].l));
  $('#app').innerHTML=`<div class="card">${segM()}<div class="mut" style="margin-top:8px">Every player's record across all logged matches they played (with or against me).</div><table style="margin-top:6px"><tr><th>Player</th><th>W-L</th><th>Left</th><th>Right</th></tr>${rows.map(([k,o])=>`<tr><td>${P(nm[k])}</td><td>${RS(o)}</td><td>${wl(o.L)}</td><td>${wl(o.R)}</td></tr>`).join('')||'<tr><td colspan=4 class="mut">No matches yet</td></tr>'}</table></div>`;return}const grp={};
  ms.forEach(s=>{let ks=mSub==='partners'?[key(s.partner)]:mSub==='opps'?s.opps.map(key):[s.opps.map(key).sort().join('|')];ks.filter(k=>k&&k!=='|').forEach(k=>(grp[k]=grp[k]||[]).push(s))});
  const rows=Object.entries(grp).map(([k,l])=>[k,...rec(l)]).sort((a,b)=>b[3].n-a[3].n);
@@ -223,12 +232,18 @@ function vMatch(){const ms=matches(),nm=allNames();if(mSub==='players'){const R=
  $('#app').innerHTML=`<div class="card">${segM()}
  <table style="margin-top:10px"><tr><th>${mSub==='partners'?'Partner':'Opponent'}</th><th>W-L</th><th>Win%</th></tr>${rows.map(r=>`<tr><td>${name(r[0])}</td><td>${RS(r[3])}</td><td>${PCT(r[3])}</td></tr>`).join('')||'<tr><td colspan=3 class="mut">No matches yet</td></tr>'}</table><div class="mut" style="margin-top:8px">Tap any name for head-to-head details.</div></div>`}
 
-const segM=()=>`<div class="seg" style="flex-wrap:wrap">${[['partners','Partners'],['opps','Opponents'],['pairs','Pairs'],['players','Players']].map(t=>`<button style="padding:8px 4px;font-size:13px" class="${mSub===t[0]?'on':''}" onclick="mSub='${t[0]}';vMatch()">${t[1]}</button>`).join('')}</div>`;
+const segM=()=>`<div class="seg" style="flex-wrap:wrap">${[['bydate','By date'],['matches','All games'],['partners','Partners'],['opps','Opponents'],['pairs','Pairs'],['players','Players']].map(t=>`<button style="padding:8px 4px;font-size:13px;flex:1 0 30%;white-space:nowrap" class="${mSub===t[0]?'on':''}" onclick="mSub='${t[0]}';vMatch()">${t[1]}</button>`).join('')}</div>`;
 // ---------- HISTORY ----------
 let hF='all';
 function vHist(){const l=sorted().filter(s=>hF==='all'||s.type===hF);
  $('#app').innerHTML=`${upListHTML()}<div class="card"><div class="seg">${['all','match','training'].map(t=>`<button class="${hF===t?'on':''}" onclick="hF='${t}';vHist()">${t[0].toUpperCase()+t.slice(1)}</button>`).join('')}</div>${l.map(s=>itemHTML(s)).join('')||'<div class="mut" style="margin-top:10px">No sessions yet.</div>'}</div>`}
 
+// ---------- MATCH DETAIL
+function openMatch(id){const s=S.sessions.find(x=>x.id===id);if(!s)return;curPlayer=null;
+ $('#modal').innerHTML=`<header><button class="btn sec" style="width:auto;margin:0;padding:8px 14px" onclick="closeModal()">‹ Back</button><span class="mut">Match</span></header><main><div class="card">${itemHTML(s)}
+ <button class="btn sec" onclick="shareMatch('${s.id}')">Share result</button></div></main>`;$('#modal').classList.remove('hidden');$('#modal').scrollTop=0}
+function shareMatch(id){const s=S.sessions.find(x=>x.id===id),d=sidesOf(s);const t=`🎾 Padel ${fmtD(s.date)}${s.time?' '+s.time:''}: ${RES[s.result]} ${scoreStr(s)}\nMe${d.me?' ('+d.me+')':''} & ${s.partner}${d.partner?' ('+d.partner+')':''} vs ${s.opps[0]}${d.o1?' ('+d.o1+')':''} & ${s.opps[1]}${d.o2?' ('+d.o2+')':''}${s.club?'\n📍 '+s.club:''}`;
+ if(navigator.share)navigator.share({text:t}).catch(()=>{});else navigator.clipboard.writeText(t).then(()=>alert('Copied to clipboard'),()=>alert(t))}
 // ---------- PAIR SCOUTING
 const pairKey=s=>s.opps.map(key).sort().join('|');
 function openPair(pk){curPlayer=null;const nm=allNames(),[a,b]=pk.split('|'),A=nm[a]||a,B=nm[b]||b;const l=matches().filter(s=>pairKey(s)===pk);const st=grpStats(l);
@@ -268,8 +283,12 @@ function closeModal(){$('#modal').classList.add('hidden');curPlayer=null}
 
 // ---------- SETTINGS ----------
 function vSet(){const nd=S.sessions.filter(s=>s.demo).length;
- $('#app').innerHTML=`<div class="card"><h2>Body weight</h2><div class="row"><input type="number" value="${S.weight}" onchange="S.weight=+this.value||176;save()"><div class="seg">${['lb','kg'].map(u=>`<button class="${S.unit===u?'on':''}" onclick="setUnit('${u}')">${u}</button>`).join('')}</div></div>
- <div class="mut" style="margin-top:6px">Calories = MET × kg × hours. MET 7 match / 6 training; Easy ×0.8, Hard ×1.2.</div></div>
+ const pf=S.profile||(S.profile={});const b=bmr();
+ $('#app').innerHTML=`<div class="card"><h2>Body profile</h2><label>Weight</label><div class="row"><input type="number" value="${S.weight}" onchange="S.weight=+this.value||176;save();vSet()"><div class="seg">${['lb','kg'].map(u=>`<button class="${S.unit===u?'on':''}" onclick="setUnit('${u}')">${u}</button>`).join('')}</div></div>
+ <div class="row"><div><label>Body fat %</label><input type="number" step="0.1" value="${pf.bf??''}" onchange="S.profile.bf=this.value===''?null:+this.value;save();vSet()"></div><div><label>Age</label><input type="number" value="${pf.age??''}" onchange="S.profile.age=+this.value;save()"></div></div>
+ <div class="row"><div><label>Height (in)</label><input type="number" value="${pf.heightIn??''}" onchange="S.profile.heightIn=+this.value;save()"></div><div><label>Sex</label><div class="seg">${['M','F'].map(x=>`<button class="${pf.sex===x?'on':''}" onclick="S.profile.sex='${x}';save();vSet()">${x}</button>`).join('')}</div></div></div>
+ <label>Resting HR (bpm)</label><input type="number" value="${pf.rhr??''}" onchange="S.profile.rhr=+this.value;save()">
+ <div class="mut" style="margin-top:8px">${b?`Lean mass ${(lbmKg()/0.453592).toFixed(1)} lb · BMR ${Math.round(b)} kcal/day (Katch-McArdle) · ${(b/24).toFixed(1)} kcal per MET-hour.<br>`:''}Calories = MET × (BMR ÷ 24) × hours. MET 7 match / 6 training; Easy ×0.8, Hard ×1.2. Falls back to MET × kg if body fat is blank. A manual calorie value on a session always wins.</div></div>
  <div class="card"><h2>Backup</h2><button class="btn" onclick="exportJ()">⬇ Export JSON</button><button class="btn sec" onclick="$('#imp').click()">⬆ Import JSON</button><input id="imp" type="file" accept=".json,application/json" class="hidden" onchange="importJ(this.files[0])"></div>
  <div class="card"><h2>Demo data</h2><div class="demo">DEMO: adds ~30 sample sessions (fake players) so you can try the features. Demo entries are tagged and can be removed without touching your real data.</div>
  <button class="btn sec" onclick="loadDemo()">Load demo data</button>${nd?`<button class="btn red" onclick="if(confirm('Remove ${nd} demo sessions?')){S.sessions=S.sessions.filter(s=>!s.demo);save();render()}">Remove demo data (${nd})</button>`:''}</div>
@@ -290,17 +309,18 @@ function loadDemo(){S.sessions=S.sessions.filter(s=>!s.demo);const R=n=>Math.flo
 function seedList(){const st=[['',''],['',''],['','']];const M=(id,date,res,sets,partner,opps,sides)=>({id,ts:1,type:'match',date,time:'',mins:90,int:'Normal',club:'',notes:'',partner,opps,result:res,sets:[...sets,...st].slice(0,3),sides});
  return[{id:'real1',ts:1,type:'training',date:'2026-10-20',time:'',mins:90,int:'Normal',club:'',notes:'Drills'},
  M('real2','2026-10-19','W',[['7','5'],['6','2']],'Juan',['Todd','JJ'],{me:'R',partner:'L',o1:'L',o2:'R'}),
- M('real3','2026-10-19','U',[['6','7'],['6','4'],['4','4']],'Griff',['Steve','Miles'],{me:'L',partner:'R',o1:'L',o2:'R'}),
+ M('real3','2026-10-19','X',[['6','7'],['6','4'],['4','4']],'Griff',['Steve','Miles'],{me:'L',partner:'R',o1:'L',o2:'R'}),
  M('real4','2026-10-18','W',[['6','4'],['6','1'],['6','3']],'Griff',['Miles','Ronnie'],{me:'L',partner:'R',o1:'L',o2:'R'})]}
 function seedReal(force){try{if(!Array.isArray(S.sessions))S.sessions=[];if(!Array.isArray(S.deletedSeeds))S.deletedSeeds=[];if(!S.mig)S.mig={};
  const seeds=seedList();if(force)S.deletedSeeds=[];
  seeds.forEach(x=>{const cur=S.sessions.find(y=>y.id===x.id);if(!cur){if(!S.deletedSeeds.includes(x.id))S.sessions.push(x)}else{if(cur.sides&&!cur.sides.o1&&x.sides){cur.sides.o1=x.sides.o1;cur.sides.o2=x.sides.o2}}});
  if(!Array.isArray(S.upcoming))S.upcoming=[];const U1={id:'seedup1',date:'2026-10-21',time:'06:45',mins:90,int:'Normal',club:'',notes:'',partner:'Juan',opps:['Todd','Pietro'],sides:{me:'R',partner:'L',o1:'L',o2:'R'}};
  if(!S.upcoming.some(x=>x.id===U1.id)&&!S.sessions.some(x=>x.id===U1.id)&&!S.deletedSeeds.includes(U1.id))S.upcoming.push(U1);
- if(!S.mig.real3U){const r3=S.sessions.find(y=>y.id==='real3');if(r3&&r3.result==='L')r3.result='U';S.mig.real3U=1}
- if(force){const r3=S.sessions.find(y=>y.id==='real3');if(r3)r3.result='U'}
+ if(!S.mig.profile1){S.profile=Object.assign({bf:13.5,age:42,heightIn:68,sex:'M',rhr:44},S.profile||{});S.weight=145;S.unit='lb';S.mig.profile1=1}
+ if(!S.mig.real3X){const r3=S.sessions.find(y=>y.id==='real3');if(r3&&(r3.result==='L'||r3.result==='U'))r3.result='X';S.mig.real3X=1}
+ if(force){const r3=S.sessions.find(y=>y.id==='real3');if(r3)r3.result='X'}
  save();localStorage.setItem('padellog.seed.v2','1')}catch(e){console.error('seed failed',e)}}
 seedReal();
 render();
-if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update().catch(()=>{});document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update().catch(()=>{})})}).catch(()=>{});let rl=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(rl)return;rl=true;location.reload()})}
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update().catch(()=>{});document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update().catch(()=>{})})}).catch(()=>{});let rl=!navigator.serviceWorker.controller;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(rl)return;rl=true;location.reload()})}
 </script></body></html>

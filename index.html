@@ -35,13 +35,14 @@ table{width:100%;border-collapse:collapse}td,th{padding:8px 4px;border-bottom:1p
 #calest{color:var(--acc)}
 </style></head><body>
 <header><h1>PADEL <b>LOG</b></h1><span class="mut" id="hdrinfo"></span></header>
-<main id="app"></main>
+<div id="due"></div><main id="app"></main>
 <div id="modal" class="modal hidden"></div>
 <nav id="nav"></nav>
 <datalist id="names"></datalist>
 <script>
 const K='padellog.v2';
 let S=JSON.parse(localStorage.getItem(K)||'null')||{sessions:[],weight:176,unit:'lb'};
+if(!S.upcoming)S.upcoming=[];
 const save=()=>localStorage.setItem(K,JSON.stringify(S));
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -57,7 +58,7 @@ function cals(type,mins,int){let m=type==='match'?7:6;m*=int==='Easy'?.8:int==='
 const sorted=()=>[...S.sessions].sort((a,b)=>b.date.localeCompare(a.date)||(b.time||'').localeCompare(a.time||'')||(b.ts||0)-(a.ts||0));
 const matches=()=>sorted().filter(s=>s.type==='match');
 // canonical display name for a key
-function allNames(){const m={};S.sessions.forEach(s=>[s.partner,...(s.opps||[])].forEach(n=>{if(norm(n))m[key(n)]=m[key(n)]||norm(n)}));return m}
+function allNames(){const m={};[...S.sessions,...(S.upcoming||[])].forEach(s=>[s.partner,...(s.opps||[])].forEach(n=>{if(norm(n))m[key(n)]=m[key(n)]||norm(n)}));return m}
 const P=n=>n?`<span class="p" onclick="event.stopPropagation();openPlayer('${esc(key(n)).replace(/'/g,"\\'")}')">${esc(norm(n))}</span>`:'—';
 const scoreStr=s=>(s.sets||[]).filter(x=>x&&(x[0]!==''||x[1]!=='')).map(x=>x[0]+'-'+x[1]).join(', ');
 const gamesOf=s=>(s.sets||[]).reduce((a,x)=>[a[0]+(+x[0]||0),a[1]+(+x[1]||0)],[0,0]);
@@ -68,7 +69,7 @@ const TABS=[['log','➕','Log'],['cal','📅','Calendar'],['stats','📊','Stats
 function renderNav(){$('#nav').innerHTML=TABS.map(t=>`<button class="${tab===t[0]?'on':''}" onclick="go('${t[0]}')"><svg viewBox="0 0 24 24">${ICONS[t[0]]}</svg>${t[2]}</button>`).join('')}
 let charts=[];function killCharts(){charts.forEach(c=>c.destroy());charts=[]}
 function go(t){tab=t;closeModal();render();scrollTo(0,0)}
-function render(){killCharts();renderNav();$('#hdrinfo').textContent=S.sessions.length+' sessions';({log:vLog,cal:vCal,stats:vStats,match:vMatch,hist:vHist,set:vSet})[tab]();
+function render(){killCharts();renderNav();renderDue();$('#hdrinfo').textContent=S.sessions.length+' sessions';({log:vLog,cal:vCal,stats:vStats,match:vMatch,hist:vHist,set:vSet})[tab]();
  $('#names').innerHTML=Object.values(allNames()).sort().map(n=>`<option value="${esc(n)}">`).join('')}
 
 // ---------- LOG ----------
@@ -85,9 +86,9 @@ function autoOpp(i){const k=key(F.opps[i]);if(!k)return;const sd=lastSide(k);if(
 function setSide(w,v){F.sides[w]=v;if(w==='me')F.sides.partner=opp(v);if(w==='o1')F.sides.o2=opp(v);vLog()}
 const sideSeg=(w,l)=>`<div class="row" style="align-items:center;margin-top:4px"><span class="mut" style="flex:0 0 90px">${l}</span><div class="seg">${['L','R'].map(v=>`<button class="${F.sides[w]===v?'on':''}" onclick="setSide('${w}','${v}')">${v==='L'?'Left':'Right'}</button>`).join('')}</div></div>`;
 function vLog(){
- if(!F)F=blank();const f=F,m=f.type==='match';
- $('#app').innerHTML=`<div class="card"><h2>${editId?'Edit session':'New session'}</h2>
- <div class="seg">${['match','training'].map(t=>`<button class="${f.type===t?'on':''}" onclick="F.type='${t}';vLog()">${t==='match'?'🎾 Match':'🏋️ Training'}</button>`).join('')}</div>
+ if(!F)F=blank();const f=F,up=f.type==='upcoming',m=f.type==='match'||up;
+ $('#app').innerHTML=`${upListHTML()}<div class="card"><h2>${f.upEdit?'Edit upcoming match':f.upId?'How did it go? Enter score & result':editId?'Edit session':'New session'}</h2>
+ <div class="seg">${(f.upId?['match']:f.upEdit?['upcoming']:['match','training','upcoming']).map(t=>`<button class="${f.type===t?'on':''}" onclick="F.type='${t}';vLog()">${t==='match'?'🎾 Match':t==='training'?'🏋️ Training':'📅 Upcoming'}</button>`).join('')}</div>
  <label>Date</label><input type="date" value="${f.date}" onchange="F.date=this.value"><label>Start time</label><input type="time" value="${F.time||''}" onchange="F.time=this.value">
  <label>Duration</label><div class="seg">${[60,90,120].map(v=>`<button class="${f.mins==v?'on':''}" onclick="F.mins=${v};vLog()">${v/60}h</button>`).join('')}</div>
  <input type="number" min="1" style="margin-top:6px" value="${f.mins}" oninput="F.mins=+this.value;upd()" placeholder="minutes">
@@ -95,15 +96,18 @@ function vLog(){
  ${m?`<label>Partner</label><input list="names" value="${esc(f.partner)}" oninput="F.partner=this.value" onchange="F.partner=this.value;autoSide()" placeholder="Partner name">
  <label>Opponents</label><div class="row"><input list="names" value="${esc(f.opps[0])}" oninput="F.opps[0]=this.value" onchange="F.opps[0]=this.value;autoOpp(0)" placeholder="Opponent 1"><input list="names" value="${esc(f.opps[1])}" oninput="F.opps[1]=this.value" onchange="F.opps[1]=this.value;autoOpp(1)" placeholder="Opponent 2"></div>
  <label>Court sides</label>${sideSeg('me','Me')}${sideSeg('partner','Partner')}${sideSeg('o1','Opponent 1')}${sideSeg('o2','Opponent 2')}
- <label>Score</label><div class="sets"><span></span><small class="mut">Us</small><small class="mut">Them</small>${[0,1,2].map(i=>`<span class="mut">Set ${i+1}</span><input type="number" min="0" value="${f.sets[i][0]}" oninput="F.sets[${i}][0]=this.value"><input type="number" min="0" value="${f.sets[i][1]}" oninput="F.sets[${i}][1]=this.value">`).join('')}</div>
- <label>Result</label><div class="seg"><button class="${f.result==='W'?'on':''}" onclick="F.result='W';vLog()">Won</button><button class="${f.result==='L'?'on':''}" onclick="F.result='L';vLog()">Lost</button></div>
+ ${up?'':`<label>Score</label><div class="sets"><span></span><small class="mut">Us</small><small class="mut">Them</small>${[0,1,2].map(i=>`<span class="mut">Set ${i+1}</span><input type="number" min="0" value="${f.sets[i][0]}" oninput="F.sets[${i}][0]=this.value"><input type="number" min="0" value="${f.sets[i][1]}" oninput="F.sets[${i}][1]=this.value">`).join('')}</div>
+ <label>Result</label><div class="seg"><button class="${f.result==='W'?'on':''}" onclick="F.result='W';vLog()">Won</button><button class="${f.result==='L'?'on':''}" onclick="F.result='L';vLog()">Lost</button></div>`}
  <label>Club / court</label><input value="${esc(f.club)}" oninput="F.club=this.value" placeholder="Club or court">`:`<label>Club / location</label><input value="${esc(f.club)}" oninput="F.club=this.value">`}
  <label>Notes</label><textarea rows="2" oninput="F.notes=this.value">${esc(f.notes)}</textarea>
  <div class="kpi" style="margin-top:12px"><small>Estimated calories</small><b id="calest"></b></div>
- <button class="btn" onclick="saveForm()">${editId?'Save changes':'Log session'}</button>
- ${editId?`<button class="btn sec" onclick="editId=null;F=blank();vLog()">Cancel edit</button>`:''}</div>`;upd()}
-function upd(){const e=$('#calest');if(e)e.textContent=cals(F.type,F.mins||0,F.int)+' kcal'}
+ <button class="btn" onclick="saveForm()">${up?(f.upEdit?'Save upcoming match':'Schedule match'):f.upId?'Log result':editId?'Save changes':'Log session'}</button>
+ ${editId||f.upEdit||f.upId?`<button class="btn sec" onclick="editId=null;F=blank();vLog()">${f.upId?'Not now':'Cancel edit'}</button>`:''}</div>`;upd()}
+function upd(){const e=$('#calest');if(e)e.textContent=cals(F.type==='upcoming'?'match':F.type,F.mins||0,F.int)+' kcal'}
 function saveForm(){const f=F;if(!f.date||!(f.mins>0))return alert('Date and duration required');
+ if(f.type==='upcoming'){const nm=allNames();const c=n=>nm[key(n)]||norm(n);const u={id:f.upEdit||uid(),date:f.date,time:f.time||'',mins:+f.mins,int:f.int,club:norm(f.club),notes:f.notes.trim(),partner:c(f.partner),opps:f.opps.map(c),sides:{...f.sides}};
+  S.upcoming=S.upcoming.filter(x=>x.id!==u.id);S.upcoming.push(u);save();editId=null;F=blank();selDay=u.date;go('log');return}
+ if(f.upId)S.upcoming=S.upcoming.filter(x=>x.id!==f.upId);
  const s={id:editId||uid(),ts:Date.now(),type:f.type,date:f.date,time:f.time||'',mins:+f.mins,int:f.int,club:norm(f.club),notes:f.notes.trim()};
  if(f.type==='match'){const nm=allNames();const c=n=>nm[key(n)]||norm(n);s.partner=c(f.partner);s.opps=f.opps.map(c);s.sets=f.sets;s.result=f.result;s.sides={...f.sides}}
  const old=S.sessions.find(x=>x.id===editId);if(old){s.demo=old.demo;s.ts=old.ts}
@@ -116,19 +120,34 @@ function itemHTML(s,showDate=true){const c=cals(s.type,s.mins,s.int);
  <div>Me${SD(sidesOf(s).me)} w/ ${P(s.partner)}${SD(sidesOf(s).partner)} vs ${P(s.opps[0])}${SD(sidesOf(s).o1)} & ${P(s.opps[1])}${SD(sidesOf(s).o2)}</div><div class="mut">${showDate?fmtD(s.date)+TM(s):(s.time?s.time+' ('+bucket(s.time)+')':'')} · ${s.mins} min · ${s.int} · ${c} kcal${s.club?' · '+esc(s.club):''}${s.demo?' · demo':''}</div>${s.notes?`<div class="mut">📝 ${esc(s.notes)}</div>`:''}</div>`;
  return`<div class="item"><div class="top"><div><span class="tag T">TRAINING</span></div><div class="acts"><button onclick="editS('${s.id}')">Edit</button><button onclick="delS('${s.id}')">Del</button></div></div><div class="mut">${showDate?fmtD(s.date)+TM(s):(s.time?s.time+' ('+bucket(s.time)+')':'')} · ${s.mins} min · ${s.int} · ${c} kcal${s.club?' · '+esc(s.club):''}${s.demo?' · demo':''}</div>${s.notes?`<div class="mut">📝 ${esc(s.notes)}</div>`:''}</div>`}
 
+// ---------- UPCOMING ----------
+const upEnd=u=>{const d=parse(u.date);const[h,mi]=(u.time||'23:59').split(':').map(Number);d.setHours(h,mi+(+u.mins||0));return d};
+const upSorted=()=>[...S.upcoming].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+const dueList=()=>upSorted().filter(u=>upEnd(u)<=new Date());
+function upItem(u,showDate=true){const d=sidesOf(u),due=upEnd(u)<=new Date();return`<div class="item"><div class="top"><div><span class="tag" style="border:1.5px solid var(--acc);color:var(--acc)">${due?'PLAYED?':'UPCOMING'}</span> <b>${showDate?fmtD(u.date):''}${u.time?' '+u.time:''}</b></div><div class="acts">${due?`<button style="color:var(--acc)" onclick="completeUp('${u.id}')">Log result</button>`:''}<button onclick="editUp('${u.id}')">Edit</button><button onclick="cancelUp('${u.id}')">Cancel</button></div></div>
+ <div>Me${SD(d.me)} w/ ${P(u.partner)}${SD(d.partner)} vs ${P(u.opps[0])}${SD(d.o1)} & ${P(u.opps[1])}${SD(d.o2)}</div><div class="mut">${u.mins} min${u.club?' · '+esc(u.club):''}</div></div>`}
+function upListHTML(){const l=upSorted();return l.length?`<div class="card"><h2>📅 Upcoming</h2>${l.map(u=>upItem(u)).join('')}</div>`:''}
+function upToF(u){return Object.assign(blank(),JSON.parse(JSON.stringify(u)),{sets:[['',''],['',''],['','']],result:'W'})}
+function editUp(id){const u=S.upcoming.find(x=>x.id===id);editId=null;F=upToF(u);F.type='upcoming';F.upEdit=id;go('log')}
+function completeUp(id){const u=S.upcoming.find(x=>x.id===id);editId=null;F=upToF(u);F.type='match';F.upId=id;go('log')}
+function cancelUp(id){if(!confirm('Cancel this upcoming match?'))return;S.upcoming=S.upcoming.filter(x=>x.id!==id);save();render()}
+function renderDue(){const l=dueList(),e=$('#due');if(tab==='log'&&F&&F.upId){e.innerHTML='';return}
+ e.innerHTML=l.length?`<main style="animation:none"><div class="card" style="border:1.5px solid var(--acc);background:linear-gradient(135deg,rgba(198,244,50,.16),rgba(198,244,50,.04))"><h2 style="color:var(--acc)">🎾 How did it go?</h2>${l.map(u=>`<div class="item"><div><b>${fmtD(u.date)}${u.time?' · '+u.time:''}</b></div><div class="mut">w/ ${esc(u.partner)||'—'} vs ${esc(u.opps[0])||'—'} & ${esc(u.opps[1])||'—'}</div><button class="btn" style="margin-top:8px" onclick="completeUp('${u.id}')">Enter score & result</button></div>`).join('')}</div></main>`:''}
+setInterval(()=>{if(dueList().length!==($('#due').querySelectorAll('.item').length))renderDue()},60000);
 // ---------- CALENDAR ----------
 let calM=new Date(),selDay=today();calM.setDate(1);
 function vCal(){const y=calM.getFullYear(),mo=calM.getMonth();const by={};S.sessions.forEach(s=>(by[s.date]=by[s.date]||[]).push(s));
  const first=new Date(y,mo,1),start=new Date(y,mo,1-((first.getDay()+6)%7));let cells='';
- for(let i=0;i<42;i++){const d=new Date(start);d.setDate(start.getDate()+i);const k=iso(d),ss=by[k]||[];
-  cells+=`<div class="d ${d.getMonth()!==mo?'o':''} ${k===today()?'today':''} ${k===selDay?'sel':''}" onclick="selDay='${k}';${d.getMonth()!==mo?`calM=new Date(${d.getFullYear()},${d.getMonth()},1);`:''}vCal()">${d.getDate()}<div class="dots">${ss.map(s=>`<i style="background:var(--${s.type==='training'?'tr':s.result==='W'?'win':'loss'})"></i>`).join('')}</div></div>`}
+ for(let i=0;i<42;i++){const d=new Date(start);d.setDate(start.getDate()+i);const k=iso(d),ss=by[k]||[],us=S.upcoming.filter(u=>u.date===k);
+  cells+=`<div class="d ${d.getMonth()!==mo?'o':''} ${k===today()?'today':''} ${k===selDay?'sel':''}" onclick="selDay='${k}';${d.getMonth()!==mo?`calM=new Date(${d.getFullYear()},${d.getMonth()},1);`:''}vCal()">${d.getDate()}<div class="dots">${ss.map(s=>`<i style="background:var(--${s.type==='training'?'tr':s.result==='W'?'win':'loss'})"></i>`).join('')}${us.map(()=>`<i style="border:1.5px solid var(--acc);box-sizing:border-box"></i>`).join('')}</div></div>`}
  const mS=S.sessions.filter(s=>s.date.startsWith(y+'-'+pad(mo+1))),mm=mS.filter(s=>s.type==='match');
  const day=(by[selDay]||[]);
  $('#app').innerHTML=`<div class="card"><div class="nav2"><button onclick="calM.setMonth(calM.getMonth()-1);vCal()">‹</button><b>${calM.toLocaleDateString(undefined,{month:'long',year:'numeric'})}</b><button onclick="calM.setMonth(calM.getMonth()+1);vCal()">›</button></div>
  <div class="row" style="margin-bottom:10px"><input type="date" value="${selDay}" onchange="if(this.value){selDay=this.value;const d=parse(this.value);calM=new Date(d.getFullYear(),d.getMonth(),1);vCal()}"><button class="btn sec" style="margin:0;flex:0 0 80px" onclick="selDay=today();calM=new Date();calM.setDate(1);vCal()">Today</button></div>
  <div class="cal">${['Mo','Tu','We','Th','Fr','Sa','Su'].map(h=>`<div class="h">${h}</div>`).join('')}${cells}</div>
- <div class="mut" style="margin-top:8px"><i class="W" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 8px"></i>Win <i class="L" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 8px"></i>Loss <i class="T" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 8px"></i>Training · Month: ${mS.length} sessions, ${mm.filter(s=>s.result==='W').length}-${mm.filter(s=>s.result==='L').length}, ${(mS.reduce((a,s)=>a+s.mins,0)/60).toFixed(1)}h</div></div>
- <div class="card"><h2>${fmtD(selDay)}</h2>${day.length?day.map(s=>itemHTML(s,false)).join(''):'<div class="mut">No sessions this day.</div>'}
+ <div class="mut" style="margin-top:8px"><i class="W" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 8px"></i>Win <i class="L" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 8px"></i>Loss <i class="T" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 8px"></i>Training <i style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 8px;border:1.5px solid var(--acc)"></i>Upcoming · Month: ${mS.length} sessions, ${mm.filter(s=>s.result==='W').length}-${mm.filter(s=>s.result==='L').length}, ${(mS.reduce((a,s)=>a+s.mins,0)/60).toFixed(1)}h</div></div>
+ <div class="card"><h2>${fmtD(selDay)}</h2>${S.upcoming.filter(u=>u.date===selDay).map(u=>upItem(u,false)).join('')}${day.length?day.map(s=>itemHTML(s,false)).join(''):S.upcoming.some(u=>u.date===selDay)?'':'<div class="mut">No sessions this day.</div>'}
+ ${selDay>today()?`<button class="btn sec" onclick="F=blank();F.type='upcoming';F.date=selDay;F.time='18:00';editId=null;go('log')">+ Schedule match on this day</button>`:''}
  <button class="btn sec" onclick="F=blank();F.date=selDay;editId=null;go('log')">+ Log session on this day</button></div>`}
 
 // ---------- STATS ----------
@@ -201,7 +220,7 @@ const segM=()=>`<div class="seg" style="flex-wrap:wrap">${[['partners','Partners
 // ---------- HISTORY ----------
 let hF='all';
 function vHist(){const l=sorted().filter(s=>hF==='all'||s.type===hF);
- $('#app').innerHTML=`<div class="card"><div class="seg">${['all','match','training'].map(t=>`<button class="${hF===t?'on':''}" onclick="hF='${t}';vHist()">${t[0].toUpperCase()+t.slice(1)}</button>`).join('')}</div>${l.map(s=>itemHTML(s)).join('')||'<div class="mut" style="margin-top:10px">No sessions yet.</div>'}</div>`}
+ $('#app').innerHTML=`${upListHTML()}<div class="card"><div class="seg">${['all','match','training'].map(t=>`<button class="${hF===t?'on':''}" onclick="hF='${t}';vHist()">${t[0].toUpperCase()+t.slice(1)}</button>`).join('')}</div>${l.map(s=>itemHTML(s)).join('')||'<div class="mut" style="margin-top:10px">No sessions yet.</div>'}</div>`}
 
 // ---------- PAIR SCOUTING
 const pairKey=s=>s.opps.map(key).sort().join('|');

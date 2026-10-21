@@ -209,7 +209,7 @@ function upListHTML(){const l=upSorted();return l.length?`<div class="card"><h2>
 function upToF(u){return Object.assign(blank(),JSON.parse(JSON.stringify(u)),{gtManual:u.gtype?1:0,sets:[['',''],['',''],['','']],result:'W'})}
 function editUp(id){const u=S.upcoming.find(x=>x.id===id);editId=null;F=upToF(u);F.type='upcoming';F.upEdit=id;go('log')}
 function completeUp(id){const u=S.upcoming.find(x=>x.id===id);editId=null;F=upToF(u);F.type='match';F.upId=id;go('log')}
-function cancelUp(id){if(!confirm('Cancel this upcoming match?'))return;if(id==='seedup1'){S.deletedSeeds=S.deletedSeeds||[];S.deletedSeeds.push(id)}S.upcoming=S.upcoming.filter(x=>x.id!==id);save();render()}
+function cancelUp(id){if(!confirm('Cancel this upcoming match?'))return;if(id.indexOf('seedup')===0){S.deletedSeeds=S.deletedSeeds||[];S.deletedSeeds.push(id)}S.upcoming=S.upcoming.filter(x=>x.id!==id);save();render()}
 function renderDue(){const l=dueList(),e=$('#due');if(tab==='log'&&F&&F.upId){e.innerHTML='';return}
  e.innerHTML=l.length?`<main style="animation:none"><div class="card" style="border:1.5px solid var(--acc);background:linear-gradient(135deg,rgba(198,244,50,.16),rgba(198,244,50,.04))"><h2 style="color:var(--acc)">🎾 How did it go?</h2>${l.map(u=>`<div class="item"><div><b>${fmtD(u.date)}${u.time?' · '+u.time:''}</b></div><div class="mut">w/ ${esc(u.partner)||'—'} vs ${esc(u.opps[0])||'—'} & ${esc(u.opps[1])||'—'}</div><button class="btn" style="margin-top:8px" onclick="completeUp('${u.id}')">Enter score & result</button></div>`).join('')}</div></main>`:''}
 setInterval(()=>{if(dueList().length!==($('#due').querySelectorAll('.item').length))renderDue()},60000);
@@ -468,6 +468,8 @@ function seedReal(force){try{if(!Array.isArray(S.sessions))S.sessions=[];if(!Arr
  seeds.forEach(x=>{const cur=S.sessions.find(y=>y.id===x.id);if(!cur){if(!S.deletedSeeds.includes(x.id)&&!(typeof SY!=='undefined'&&SY.tomb.s[x.id]&&!force))S.sessions.push(x)}else{if(cur.sides&&!cur.sides.o1&&x.sides){cur.sides.o1=x.sides.o1;cur.sides.o2=x.sides.o2}}});
  if(!Array.isArray(S.upcoming))S.upcoming=[];const U1={id:'seedup1',date:'2026-10-21',time:'06:45',mins:90,int:'Normal',club:'',notes:'',partner:'Juan',opps:['Todd','Pietro'],sides:{me:'R',partner:'L',o1:'L',o2:'R'}};
  if(!S.upcoming.some(x=>x.id===U1.id)&&!S.sessions.some(x=>x.id===U1.id)&&!S.deletedSeeds.includes(U1.id))S.upcoming.push(U1);
+ const U2={id:'seedup2',date:'2026-10-24',time:'07:00',mins:90,int:'Normal',club:'',notes:'',partner:'Griff',opps:['Juan','Dani'],sides:{me:'L',partner:'R',o1:'L',o2:'R'}};
+ if(!S.upcoming.some(x=>x.id===U2.id)&&!S.sessions.some(x=>x.id===U2.id)&&!S.deletedSeeds.includes(U2.id))S.upcoming.push(U2);
  if(!S.mig.profile1){S.profile=Object.assign({bf:13.5,age:42,heightIn:68,sex:'M',rhr:44},S.profile||{});S.weight=145;S.unit='lb';S.mig.profile1=1}
  if(!S.mig.gt1){const pre=ratings().pre;const sg=(m)=>{const p=pre[m.id];const ks=[key(m.partner),...(m.opps||[]).map(key)].filter(Boolean);if(!ks.length)return'I';const a=ks.reduce((x,k)=>x+(p&&p[k]!=null?p[k]:rt(k)),0)/ks.length;return a>=4.5?'A':'I'};S.sessions.forEach(m=>{if(m.type==='match'&&!m.gtype)m.gtype=sg(m)});S.upcoming.forEach(u=>{if(!u.gtype)u.gtype=suggestGT(u.partner,u.opps)});S.mig.gt1=1}
  if(!S.mig.real3X){const r3=S.sessions.find(y=>y.id==='real3');if(r3&&(r3.result==='L'||r3.result==='U'))r3.result='X';S.mig.real3X=1}

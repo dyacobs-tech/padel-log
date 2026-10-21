@@ -165,8 +165,9 @@ function itemHTML(s,showDate=true){const c=sessCal(s);
 const upEnd=u=>{const d=parse(u.date);const[h,mi]=(u.time||'23:59').split(':').map(Number);d.setHours(h,mi+(+u.mins||0));return d};
 const upSorted=()=>[...S.upcoming].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
 const dueList=()=>upSorted().filter(u=>upEnd(u)<=new Date());
+const TBD='<span class="mut">TBD</span>';
 function upItem(u,showDate=true){const d=sidesOf(u),due=upEnd(u)<=new Date();return`<div class="item"><div class="top"><div><span class="tag" style="border:1.5px solid var(--acc);color:var(--acc)">${due?'PLAYED?':'UPCOMING'}</span>${u.gtype?` <span class="mut" style="font-size:12px">${GT[u.gtype]}</span>`:''} <b>${showDate?fmtD(u.date):''}${u.time?' '+u.time:''}</b></div><div class="acts">${due?`<button style="color:var(--acc)" onclick="completeUp('${u.id}')">Log result</button>`:''}<button onclick="editUp('${u.id}')">Edit</button><button onclick="cancelUp('${u.id}')">Cancel</button></div></div>
- <div>Me${SD(d.me)} w/ ${P(u.partner)}${SD(d.partner)} vs ${P(u.opps[0])}${SD(d.o1)} & ${P(u.opps[1])}${SD(d.o2)}</div><div class="mut">${u.mins} min${u.club?' · '+esc(u.club):''}</div></div>`}
+ <div>Me${SD(d.me)} w/ ${u.partner?P(u.partner)+SD(d.partner):TBD} vs ${u.opps[0]?P(u.opps[0])+SD(d.o1):TBD} & ${u.opps[1]?P(u.opps[1])+SD(d.o2):TBD}</div><div class="mut">${u.mins} min${u.club?' · '+esc(u.club):''}</div></div>`}
 function upListHTML(){const l=upSorted();return l.length?`<div class="card"><h2>📅 Upcoming</h2>${l.map(u=>upItem(u)).join('')}</div>`:''}
 function upToF(u){return Object.assign(blank(),JSON.parse(JSON.stringify(u)),{gtManual:u.gtype?1:0,sets:[['',''],['',''],['','']],result:'W'})}
 function editUp(id){const u=S.upcoming.find(x=>x.id===id);editId=null;F=upToF(u);F.type='upcoming';F.upEdit=id;go('log')}
@@ -175,6 +176,23 @@ function cancelUp(id){if(!confirm('Cancel this upcoming match?'))return;if(id===
 function renderDue(){const l=dueList(),e=$('#due');if(tab==='log'&&F&&F.upId){e.innerHTML='';return}
  e.innerHTML=l.length?`<main style="animation:none"><div class="card" style="border:1.5px solid var(--acc);background:linear-gradient(135deg,rgba(198,244,50,.16),rgba(198,244,50,.04))"><h2 style="color:var(--acc)">🎾 How did it go?</h2>${l.map(u=>`<div class="item"><div><b>${fmtD(u.date)}${u.time?' · '+u.time:''}</b></div><div class="mut">w/ ${esc(u.partner)||'—'} vs ${esc(u.opps[0])||'—'} & ${esc(u.opps[1])||'—'}</div><button class="btn" style="margin-top:8px" onclick="completeUp('${u.id}')">Enter score & result</button></div>`).join('')}</div></main>`:''}
 setInterval(()=>{if(dueList().length!==($('#due').querySelectorAll('.item').length))renderDue()},60000);
+// ---------- PREDICTOR ----------
+function predictHTML(u){const all=allM(),nm=allNames(),d=sidesOf(u);const pk=key(u.partner),o=(u.opps||[]).map(key);const nmK=k=>esc(nm[k]||k);
+ const miss=[!pk&&'partner',!o[0]&&'opponent 1',!o[1]&&'opponent 2'].filter(Boolean);const ev=[],used=new Set();const add=(t,l,extra='')=>{if(!l.length)return;l.forEach(x=>used.add(x.id));const q=grpStats(l);ev.push(`<div>• ${t}: <b>${RS(q)}</b>${q.d?' ('+PCT(q)+')':''} <span class="mut">${l.length} match${l.length>1?'es':''}${extra}</span></div>`)};
+ let head='';
+ if(!miss.length){const a=(rt('me')+rt(pk))/2,b=(rt(o[0])+rt(o[1]))/2,E=1/(1+Math.pow(10,-(a-b)/RSCALE));const c=E>=.6?'var(--win)':E<=.4?'var(--loss)':'var(--tie)';
+  head=`<div style="display:flex;align-items:baseline;gap:8px"><b style="font-size:24px;color:${c}">${Math.round(E*100)}%</b><span class="mut">win probability · team ${a.toFixed(2)} vs ${b.toFixed(2)}</span></div>`}
+ else head=`<div class="mut">⚠️ ${miss.join(', ')} TBD — no win probability until all 4 players are known.${[pk,...o].filter(Boolean).length?' Known ratings: Me '+rt('me').toFixed(2)+[pk,...o].filter(Boolean).map(k=>' · '+nmK(k)+' '+rt(k).toFixed(2)).join(''):''}</div>`;
+ if(o[0]&&o[1]){const pkey=[...o].sort().join('|');add(`Vs ${nmK(o[0])} & ${nmK(o[1])} as a pair`,all.filter(m=>pairKey(m)===pkey))}
+ o.filter(Boolean).forEach(k=>{const l=all.filter(m=>m.opps.map(key).includes(k));if(l.length&&!(o[0]&&o[1]&&l.every(m=>pairKey(m)===[...o].sort().join('|'))))add(`Vs ${nmK(k)} (any partner)`,l)});
+ if(pk)add(`With ${nmK(pk)} as partner`,all.filter(m=>key(m.partner)===pk));
+ const ccI=d.me&&(d.o1===d.me?0:d.o2===d.me?1:-1);if(ccI>=0&&o[ccI]){const l=all.filter(m=>crossOpp(m)===o[ccI]);if(l.length){const q=ccStats(l);add(`Cross-court vs ${nmK(o[ccI])}`,l,` · games ${sgn(q.diff)}`)}else ev.push(`<div class="mut">• No cross-court history vs ${nmK(o[ccI])}</div>`)}
+ if(d.me&&u.gtype)add(`Me on the ${d.me==='L'?'left':'right'} in ${GT[u.gtype]}`,all.filter(m=>sidesOf(m).me===d.me&&m.gtype===u.gtype));
+ const n=used.size;const conf=n===0?'No history with these players — ratings only':n<3?`Low confidence — ${n} match${n>1?'es':''} of data`:n<8?`Medium confidence — ${n} matches of data`:`High confidence — ${n} matches of data`;
+ // side suggestion
+ let side='';const pool=pk?all.filter(m=>key(m.partner)===pk):all.filter(m=>m.gtype===u.gtype);const sL=grpStats(pool.filter(m=>sidesOf(m).me==='L')),sR=grpStats(pool.filter(m=>sidesOf(m).me==='R'));
+ if(sL.d>=2&&sR.d>=2&&Math.abs(sL.p-sR.p)>=.15){const b=sL.p>sR.p?'left':'right';side=`💡 Suggest playing <b>${b}</b>${pk?' with '+nmK(pk):''}: left ${PCT(sL)} (${sL.n}) vs right ${PCT(sR)} (${sR.n})`}else side=`<span class="mut">Side suggestion: not enough data (need 2+ decided matches on each side${pk?' with '+nmK(pk):''}).</span>`;
+ return`<div style="background:var(--card2);border-radius:12px;padding:12px;margin-top:8px"><div class="mut" style="font-size:11px;font-weight:600;letter-spacing:.5px;margin-bottom:4px">🔮 PREDICTION</div>${head}<div style="font-size:13px;margin-top:6px">${ev.join('')||'<div class="mut">No past matches with any of these players.</div>'}</div><div style="font-size:12px;margin-top:6px;color:${n<3?'var(--tie)':n<8?'var(--txt)':'var(--win)'}">${conf}</div><div style="font-size:13px;margin-top:4px">${side}</div></div>`}
 // ---------- CALENDAR ----------
 let calM=new Date(),selDay=today();calM.setDate(1);
 function vCal(){const y=calM.getFullYear(),mo=calM.getMonth();const by={};S.sessions.forEach(s=>(by[s.date]=by[s.date]||[]).push(s));
@@ -189,7 +207,9 @@ function vCal(){const y=calM.getFullYear(),mo=calM.getMonth();const by={};S.sess
  <div class="mut" style="margin-top:8px"><i class="W" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 8px"></i>Win <i class="L" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 8px"></i>Loss <i class="X" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 8px"></i>Tie <i class="U" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 8px"></i>Unfin. <i class="T" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 8px"></i>Training <i style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 8px;border:1.5px solid var(--acc)"></i>Upcoming · Month: ${mS.length} sessions, ${RS(grpStats(mm))}, ${(mS.reduce((a,s)=>a+s.mins,0)/60).toFixed(1)}h</div></div>
  <div class="card"><h2>${fmtD(selDay)}</h2>${S.upcoming.filter(u=>u.date===selDay).map(u=>upItem(u,false)).join('')}${day.length?day.map(s=>itemHTML(s,false)).join(''):S.upcoming.some(u=>u.date===selDay)?'':'<div class="mut">No sessions this day.</div>'}
  ${selDay>today()?`<button class="btn sec" onclick="F=blank();F.type='upcoming';F.date=selDay;F.time='18:00';editId=null;go('log')">+ Schedule match on this day</button>`:''}
- <button class="btn sec" onclick="F=blank();F.date=selDay;editId=null;go('log')">+ Log session on this day</button></div>`}
+ <button class="btn sec" onclick="F=blank();F.date=selDay;editId=null;go('log')">+ Log session on this day</button></div>
+ <div class="card"><h2>📅 Upcoming matches</h2>${upSorted().map(u=>`<div style="margin-bottom:12px">${upItem(u)}${predictHTML(u)}</div>`).join('')||'<div class="mut">No upcoming matches scheduled.</div>'}
+ <button class="btn" onclick="F=blank();F.type='upcoming';F.date=selDay>=today()?selDay:today();F.time='18:00';editId=null;go('log')">+ Schedule a match</button></div>`}
 
 // ---------- STATS ----------
 let calG='week',calOff=0,trG='month';

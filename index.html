@@ -17,7 +17,8 @@ nav button{flex:1;min-width:0;background:none;border:0;color:var(--mut);padding:
 nav svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}nav button.on{color:var(--acc)}
 label{display:block;font-size:13px;font-weight:500;color:var(--mut);margin:16px 0 8px}
 input,select,textarea{width:100%;background:var(--card2);color:var(--txt);border:1px solid transparent;border-radius:12px;padding:12px;font:16px inherit;outline:none;transition:border-color .2s}input:focus,textarea:focus{border-color:var(--acc)}
-.seg{display:flex;gap:2px;background:var(--card2);border-radius:12px;padding:3px}.seg button{flex:1;padding:8px;border-radius:10px;border:0;background:none;color:var(--txt);font:600 14px inherit;transition:all .2s}.seg button.on{background:#48484a;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+.seg{display:flex;gap:2px;background:var(--card2);border-radius:12px;padding:3px}
+#grseg{flex-wrap:wrap}#grseg button{flex:1 1 14%}.seg button{flex:1;padding:8px;border-radius:10px;border:0;background:none;color:var(--txt);font:600 14px inherit;transition:all .2s}.seg button.on{background:#48484a;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.4)}
 .btn{background:var(--acc);color:#000;border:0;border-radius:14px;padding:14px 16px;font:700 16px inherit;width:100%;margin-top:16px;transition:transform .1s,opacity .2s}.btn:active{transform:scale(.98);opacity:.85}.btn.sec{background:var(--card2);color:var(--txt)}.btn.red{background:rgba(255,69,58,.15);color:var(--loss)}
 .row{display:flex;gap:8px}.row>*{flex:1}.sets{display:grid;grid-template-columns:56px 1fr 1fr;gap:8px;align-items:center}
 .kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}.card .kpis{margin:0}.kpi{background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:16px}.card .kpi{background:var(--card2);border:0}
@@ -92,9 +93,9 @@ const sorted=()=>[...S.sessions].sort((a,b)=>b.date.localeCompare(a.date)||(b.ti
 const allM=()=>sorted().filter(s=>s.type==='match');
 let gtF='all';const matches=()=>allM().filter(s=>gtF==='all'||s.gtype===gtF);
 const GT={A:'Advanced',I:'Intermediate'};
-const GRADES=['A','B','C','D','F'],GV={A:4,B:3,C:2,D:1,F:0},GCOL={A:'#30d158',B:'#a3e635',C:'#ffd60a',D:'#ff9f0a',F:'#ff453a'};
+const GRADES=['A+','A','A-','B+','B','B-','C+','C','C-','D+','D','D-','F'],GV={'A+':4.3,A:4,'A-':3.7,'B+':3.3,B:3,'B-':2.7,'C+':2.3,C:2,'C-':1.7,'D+':1.3,D:1,'D-':0.7,F:0},GCOL={'A+':'#30d158',A:'#30d158','A-':'#30d158','B+':'#a3e635',B:'#a3e635','B-':'#a3e635','C+':'#ffd60a',C:'#ffd60a','C-':'#ffd60a','D+':'#ff9f0a',D:'#ff9f0a','D-':'#ff9f0a',F:'#ff453a'};
 const gBadge=g=>g?`<span class="tag" style="background:${GCOL[g]}22;color:${GCOL[g]};border:1px solid ${GCOL[g]}66">${g}</span>`:'';
-const gLetter=v=>v==null?'—':v>=3.5?'A':v>=2.5?'B':v>=1.5?'C':v>=.5?'D':'F';
+const gLetter=v=>{if(v==null)return'—';let best='F',bd=1e9;for(const g of GRADES){const d=Math.abs(GV[g]-v);if(d<bd){bd=d;best=g}}return best};
 const avgG=l=>{const g=l.filter(s=>s.grade);return g.length?g.reduce((a,s)=>a+GV[s.grade],0)/g.length:null};
 const gTxt=l=>{const v=avgG(l),n=l.filter(s=>s.grade).length;return v==null?'<span class="mut">—</span>':`<b style="color:${GCOL[gLetter(v)]}">${gLetter(v)}</b> <span class="mut">${v.toFixed(1)} · ${n}</span>`};
 let modalCharts=[];
@@ -175,7 +176,7 @@ function vLog(){
  ${up?'':`<label>Score</label><div class="sets"><span></span><small class="mut">Us</small><small class="mut">Them</small>${F.sets.map((_,i)=>`<span class="mut">Set ${i+1}</span><input type="number" min="0" value="${f.sets[i][0]}" oninput="F.sets[${i}][0]=this.value" onchange="suggestRes()"><input type="number" min="0" value="${f.sets[i][1]}" oninput="F.sets[${i}][1]=this.value" onchange="suggestRes()">`).join('')}</div>${F.sets.length<5?`<button class="btn sec" style="margin-top:8px;padding:8px" onclick="F.sets.push(['','']);vLog()">+ Add set ${F.sets.length+1}</button>`:''}
  <label>Result</label><div class="seg" id="resseg">${resBtns()}</div><div class="mut" style="margin-top:4px">Auto-suggested from the score; tap to override.</div>`}
  <label>Club / court</label><input value="${esc(f.club)}" oninput="F.club=this.value" placeholder="Club or court">`:`<label>Club / location</label><input value="${esc(f.club)}" oninput="F.club=this.value">`}
- <label>How I played</label><div class="seg" id="grseg">${grBtns()}</div>
+ <label>How I played <span class="mut">(optional)</span></label><div class="seg" id="grseg">${grBtns()}</div>
  <label>Notes</label><textarea rows="2" oninput="F.notes=this.value">${esc(f.notes)}</textarea>
  <div class="kpi" style="margin-top:12px"><small>Estimated calories (lean-mass MET)</small><b id="calest"></b></div>
  <details style="margin-top:8px"><summary class="mut" style="cursor:pointer">More (manual calories, avg HR)</summary><div class="row"><div><label>Calories override</label><input type="number" min="0" placeholder="auto" value="${f.kcal||''}" oninput="F.kcal=this.value"></div><div><label>Avg HR (optional)</label><input type="number" min="0" placeholder="bpm" value="${f.hr||''}" oninput="F.hr=this.value"></div></div></details>
@@ -378,7 +379,7 @@ function openMe(){curPlayer=null;const am=allM(),o=grpStats(am),x=ratings();cons
  <div class="card"><h2>My partners</h2><table><tr><th>Partner</th><th>W-L-T</th><th>Win%</th></tr>${pr.map(([k,q])=>`<tr><td>${P(nm[k]||k)}</td><td>${RS(q)}</td><td>${PCT(q)}</td></tr>`).join('')||'<tr><td class="mut" colspan=3>None yet</td></tr>'}</table></div>
  <div class="card"><h2>Recent matches</h2>${am.slice(0,8).map(s=>itemHTML(s)).join('')||'<div class="mut">None</div>'}</div></main>`;
  $('#modal').classList.remove('hidden');$('#modal').scrollTop=0;rChart($('#mchart'),'me',modalCharts)}
-function gradeHTML(ms){const all=S.sessions.filter(s=>s.grade);if(!all.length)return`<div class="card"><h2>📝 How I played</h2><div class="mut">No grades yet — tap A–F when logging a session.</div></div>`;
+function gradeHTML(ms){const all=S.sessions.filter(s=>s.grade);if(!all.length)return`<div class="card"><h2>📝 How I played</h2><div class="mut">No grades yet — tap a grade (A+ through F) when logging a session.</div></div>`;
  const byG=GRADES.map(g=>[g,grpStats(ms.filter(s=>s.grade===g))]).filter(x=>x[1].n);
  const tb=(t,rows)=>rows.length?`<div class="mut" style="margin:12px 0 4px;font-weight:600">${t}</div><table>${rows.map(([n,l])=>`<tr><td>${n}</td><td>${gTxt(l)}</td></tr>`).join('')}</table>`:'';
  const gm=ms.filter(s=>s.grade),nm=allNames(),pk={};gm.forEach(s=>{const k=key(s.partner);if(k)(pk[k]=pk[k]||[]).push(s)});
@@ -386,7 +387,7 @@ function gradeHTML(ms){const all=S.sessions.filter(s=>s.grade);if(!all.length)re
  ${byG.length?`<div class="mut" style="margin:12px 0 4px;font-weight:600">Record by grade</div><table><tr><th>Grade</th><th>W-L-T</th><th>Win%</th></tr>${byG.map(([g,q])=>`<tr><td>${gBadge(g)}</td><td>${RS(q)}</td><td>${PCT(q)}</td></tr>`).join('')}</table>`:''}
  ${tb('Grade by partner',Object.entries(pk).map(([k,l])=>[P(nm[k]||k),l]))}${tb('Grade by my side',['L','R'].map(x=>[x==='L'?'Left':'Right',gm.filter(s=>sidesOf(s).me===x)]).filter(x=>x[1].length))}${tb('Grade by game type',['A','I'].map(x=>[GT[x],gm.filter(s=>s.gtype===x)]).filter(x=>x[1].length))}</div>`}
 function drawGrade(){const cv=$('#grc');if(!cv||!window.Chart)return;const l=S.sessions.filter(s=>s.grade).sort((a,b)=>a.date.localeCompare(b.date)||(a.time||'').localeCompare(b.time||''));const v=l.map(s=>GV[s.grade]);const ra=v.map((_,i)=>{const w=v.slice(Math.max(0,i-2),i+1);return +(w.reduce((a,b)=>a+b,0)/w.length).toFixed(2)});
- charts.push(new Chart(cv,{type:'line',data:{labels:l.map(s=>parse(s.date).toLocaleDateString(undefined,{month:'short',day:'numeric'})),datasets:[{label:'Grade',data:v,showLine:false,pointRadius:4,pointBackgroundColor:l.map(s=>GCOL[s.grade])},{label:'3-session avg',data:ra,borderColor:'#c6f432',tension:.3}]},options:{plugins:{legend:{display:false}},scales:{y:{min:0,max:4,ticks:{stepSize:1,callback:v=>['F','D','C','B','A'][v]}}}}}))}
+ charts.push(new Chart(cv,{type:'line',data:{labels:l.map(s=>parse(s.date).toLocaleDateString(undefined,{month:'short',day:'numeric'})),datasets:[{label:'Grade',data:v,showLine:false,pointRadius:4,pointBackgroundColor:l.map(s=>GCOL[s.grade])},{label:'3-session avg',data:ra,borderColor:'#c6f432',tension:.3}]},options:{plugins:{legend:{display:false}},scales:{y:{min:0,max:4.4,ticks:{stepSize:1/3,callback:v=>{const g=GRADES.find(g=>Math.abs(GV[g]-v)<0.06);return g||''}}}}}}}))}
 // ---------- PAIR SCOUTING
 const pairKey=s=>s.opps.map(key).sort().join('|');
 function openPair(pk){curPlayer=null;const nm=allNames(),[a,b]=pk.split('|'),A=nm[a]||a,B=nm[b]||b;const l=matches().filter(s=>pairKey(s)===pk);const st=grpStats(l);

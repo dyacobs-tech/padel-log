@@ -104,7 +104,7 @@ const isLefty=k=>{const o=(S.lefty||{})[k];return o!=null?!!o:!!LEFTY_SEED[k]};
 function setLefty(k,v){S.lefty=S.lefty||{};S.lefty[k]=v?1:0;save();openPlayer(k)}
 function setStart(k,v){S.startLevels=S.startLevels||{};if(v===''||isNaN(+v))delete S.startLevels[k];else S.startLevels[k]=Math.min(7,Math.max(0,+v));save();_rc=null;if(k==='me'){if(tab==='set')vSet()}else openPlayer(k)}
 // ---------- RATINGS (0-7, Elo-style) ----------
-const START_LEVELS={me:4.5,juan:6,steve:4,miles:4,robbie:3.5,ronnie:3.5,flor:4,todd:5,pietro:5,jj:5.5,dani:5.5,blake:5,umberto:5.5,ed:5,anders:4,griff:3.5,adam:3,charlie:3,daniel:3,russ:3.75};
+const START_LEVELS={me:4.5,juan:6,steve:4,stephen:3.25,miles:4,robbie:3.5,ronnie:3.5,flor:4,todd:5,pietro:5,jj:5.5,dani:5.5,blake:5,umberto:5.5,ed:5,anders:4,griff:3.5,adam:3.25,charlie:3,daniel:3,russ:3.75};
 const DEFAULT_LEVEL=3.5,RSCALE=1.5; // win prob = 1/(1+10^(-(teamA-teamB)/1.5))
 const kFac=n=>0.1+0.3/(1+n/5); // 0.40 for a new player, ~0.25 after 5 matches, ~0.16 after 20
 function startLevel(k){const o=(S.startLevels||{})[k];return o!=null&&o!==''?+o:(START_LEVELS[k]??DEFAULT_LEVEL)}
@@ -469,7 +469,7 @@ function seedReal(force){try{if(!Array.isArray(S.sessions))S.sessions=[];if(!Arr
  seeds.forEach(x=>{const cur=S.sessions.find(y=>y.id===x.id);if(!cur){if(!S.deletedSeeds.includes(x.id)&&!(typeof SY!=='undefined'&&SY.tomb.s[x.id]&&!force))S.sessions.push(x)}else{if(cur.sides&&!cur.sides.o1&&x.sides){cur.sides.o1=x.sides.o1;cur.sides.o2=x.sides.o2}}});
  if(!Array.isArray(S.upcoming))S.upcoming=[];const U1={id:'seedup1',date:'2026-10-21',time:'06:45',mins:90,int:'Normal',club:'',notes:'',partner:'Juan',opps:['Todd','Pietro'],sides:{me:'R',partner:'L',o1:'L',o2:'R'}};
  if(!S.upcoming.some(x=>x.id===U1.id)&&!S.sessions.some(x=>x.id===U1.id)&&!S.deletedSeeds.includes(U1.id))S.upcoming.push(U1);
- const U2={id:'seedup2',date:'2026-10-24',time:'07:00',mins:90,int:'Normal',club:'',notes:'',partner:'Griff',opps:['Juan','Dani'],sides:{me:'L',partner:'R',o1:'L',o2:'R'}};
+ const U2={id:'seedup2',date:'2026-10-24',time:'07:00',mins:90,int:'Normal',club:'',notes:'',partner:'Adam',opps:['Stephen','Griff'],sides:{me:'L',partner:'R',o1:'L',o2:'R'}};
  if(!S.upcoming.some(x=>x.id===U2.id)&&!S.sessions.some(x=>x.id===U2.id)&&!S.deletedSeeds.includes(U2.id))S.upcoming.push(U2);
  const U3={id:'seedup3',date:'2026-10-23',time:'14:30',mins:90,int:'Normal',club:'',notes:'',partner:'Griff',opps:['Flor','Russ'],sides:{me:'L',partner:'R',o1:'L',o2:'R'}};
  if(!S.upcoming.some(x=>x.id===U3.id)&&!S.sessions.some(x=>x.id===U3.id)&&!S.deletedSeeds.includes(U3.id))S.upcoming.push(U3);
@@ -479,6 +479,7 @@ function seedReal(force){try{if(!Array.isArray(S.sessions))S.sessions=[];if(!Arr
  if(!S.upcoming.some(x=>x.id===U5.id)&&!S.sessions.some(x=>x.id===U5.id)&&!S.deletedSeeds.includes(U5.id))S.upcoming.push(U5);
  if(!S.mig.profile1){S.profile=Object.assign({bf:13.5,age:42,heightIn:68,sex:'M',rhr:44},S.profile||{});S.weight=145;S.unit='lb';S.mig.profile1=1}
  if(!S.mig.gt1){const pre=ratings().pre;const sg=(m)=>{const p=pre[m.id];const ks=[key(m.partner),...(m.opps||[]).map(key)].filter(Boolean);if(!ks.length)return'I';const a=ks.reduce((x,k)=>x+(p&&p[k]!=null?p[k]:rt(k)),0)/ks.length;return a>=4.5?'A':'I'};S.sessions.forEach(m=>{if(m.type==='match'&&!m.gtype)m.gtype=sg(m)});S.upcoming.forEach(u=>{if(!u.gtype)u.gtype=suggestGT(u.partner,u.opps)});S.mig.gt1=1}
+ if(!S.mig.satfix1){const u2=S.upcoming.find(x=>x.id==='seedup2');if(u2&&u2.partner==='Griff'&&(u2.opps||[]).join('|')==='Juan|Dani'){u2.partner='Adam';u2.opps=['Stephen','Griff'];u2.sides={me:'L',partner:'R',o1:'L',o2:'R'};u2.gtype=suggestGT(u2.partner,u2.opps)}S.mig.satfix1=1}
  if(!S.mig.real3X){const r3=S.sessions.find(y=>y.id==='real3');if(r3&&(r3.result==='L'||r3.result==='U'))r3.result='X';S.mig.real3X=1}
  if(force){const r3=S.sessions.find(y=>y.id==='real3');if(r3)r3.result='X'}
  save();localStorage.setItem('padellog.seed.v2','1')}catch(e){console.error('seed failed',e)}}

@@ -202,10 +202,11 @@ function itemHTML(s,showDate=true){const c=sessCal(s);
 
 // ---------- UPCOMING ----------
 const upEnd=u=>{const d=parse(u.date);const[h,mi]=(u.time||'23:59').split(':').map(Number);d.setHours(h,mi+(+u.mins||0));return d};
+const upStart=u=>{const d=parse(u.date);const[h,mi]=(u.time||'23:59').split(':').map(Number);d.setHours(h,mi);return d};
 const upSorted=()=>[...S.upcoming].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
-const dueList=()=>upSorted().filter(u=>upEnd(u)<=new Date());
+const dueList=()=>upSorted().filter(u=>upStart(u)<=new Date());
 const TBD='<span class="mut">TBD</span>';
-function upItem(u,showDate=true){const d=sidesOf(u),due=upEnd(u)<=new Date();return`<div class="item"><div class="top"><div><span class="tag" style="border:1.5px solid var(--acc);color:var(--acc)">${due?'PLAYED?':'UPCOMING'}</span>${u.gtype?` <span class="mut" style="font-size:12px">${GT[u.gtype]}</span>`:''} <b>${showDate?fmtD(u.date):''}${u.time?' '+u.time:''}</b></div><div class="acts">${due?`<button style="color:var(--acc)" onclick="completeUp('${u.id}')">Log result</button>`:''}<button onclick="editUp('${u.id}')">Edit</button><button onclick="cancelUp('${u.id}')">Cancel</button></div></div>
+function upItem(u,showDate=true){const d=sidesOf(u),due=upEnd(u)<=new Date(),started=upStart(u)<=new Date();return`<div class="item"><div class="top"><div><span class="tag" style="border:1.5px solid var(--acc);color:var(--acc)">${due?'PLAYED?':'UPCOMING'}</span>${u.gtype?` <span class="mut" style="font-size:12px">${GT[u.gtype]}</span>`:''} <b>${showDate?fmtD(u.date):''}${u.time?' '+u.time:''}</b></div><div class="acts">${started?`<button style="color:var(--acc)" onclick="completeUp('${u.id}')">Log result</button>`:''}<button onclick="editUp('${u.id}')">Edit</button><button onclick="cancelUp('${u.id}')">Cancel</button></div></div>
  <div>Me${SD(d.me)} w/ ${u.partner?P(u.partner)+SD(d.partner):TBD} vs ${u.opps[0]?P(u.opps[0])+SD(d.o1):TBD} & ${u.opps[1]?P(u.opps[1])+SD(d.o2):TBD}</div><div class="mut">${u.mins} min${u.club?' · '+esc(u.club):''}</div></div>`}
 function upListHTML(){const l=upSorted();return l.length?`<div class="card"><h2>📅 Upcoming</h2>${l.map(u=>upItem(u)).join('')}</div>`:''}
 function upToF(u){return Object.assign(blank(),JSON.parse(JSON.stringify(u)),{gtManual:u.gtype?1:0,sets:[['',''],['',''],['','']],result:'W'})}

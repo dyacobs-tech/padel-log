@@ -105,7 +105,7 @@ const isLefty=k=>{const o=(S.lefty||{})[k];return o!=null?!!o:!!LEFTY_SEED[k]};
 function setLefty(k,v){S.lefty=S.lefty||{};S.lefty[k]=v?1:0;save();openPlayer(k)}
 function setStart(k,v){S.startLevels=S.startLevels||{};if(v===''||isNaN(+v))delete S.startLevels[k];else S.startLevels[k]=Math.min(7,Math.max(0,+v));save();_rc=null;if(k==='me'){if(tab==='set')vSet()}else openPlayer(k)}
 // ---------- RATINGS (0-7, Elo-style) ----------
-const START_LEVELS={me:4.5,juan:6,steve:4.25,stephen:3.25,miles:4.25,robbie:3.5,ronnie:3.5,flor:4,todd:5,pietro:5.25,jj:5.5,dani:5.5,blake:5.25,umberto:5.5,ed:5,anders:4,griff:3.5,adam:3.25,charlie:3,daniel:3,russ:3.75,'dave h':5.25,nico:4.75};
+const START_LEVELS={me:4.5,juan:6,steve:4.25,stephen:3.4,miles:4.25,robbie:3.5,ronnie:3.5,flor:4,todd:5,pietro:5.25,jj:5.5,dani:5.5,blake:5.25,umberto:5.5,ed:5,anders:4,griff:3.5,adam:3,charlie:3.25,daniel:3,russ:3.75,'dave h':5.25,nico:4.75};
 const DEFAULT_LEVEL=3.5,RSCALE=1.5; // win prob = 1/(1+10^(-(teamA-teamB)/1.5))
 const kFac=n=>0.1+0.3/(1+n/5); // 0.40 for a new player, ~0.25 after 5 matches, ~0.16 after 20
 function startLevel(k){const o=(S.startLevels||{})[k];return o!=null&&o!==''?+o:(START_LEVELS[k]??DEFAULT_LEVEL)}

@@ -497,6 +497,7 @@ function seedReal(force){try{if(!Array.isArray(S.sessions))S.sessions=[];if(!Arr
  if(!S.mig.friupd1){const u3=S.upcoming.find(x=>x.id==='seedup3');if(u3&&u3.partner==='Griff'&&(u3.opps||[]).join('|')==='Flor|Russ'){u3.time='13:00';u3.opps=['Russ','Steve'];u3.sides={me:'L',partner:'R',o1:'R',o2:'L'};u3.gtype=suggestGT(u3.partner,u3.opps)}S.mig.friupd1=1}
  if(!S.mig.friupd2){const u3b=S.upcoming.find(x=>x.id==='seedup3');if(u3b&&(u3b.opps||[]).includes('Stephen')){u3b.opps=u3b.opps.map(n=>n==='Stephen'?'Steve':n);u3b.gtype=suggestGT(u3b.partner,u3b.opps)}S.mig.friupd2=1}
  if(!S.mig.real3X){const r3=S.sessions.find(y=>y.id==='real3');if(r3&&(r3.result==='L'||r3.result==='U'))r3.result='X';S.mig.real3X=1}
+ if(!S.mig.wedpm1){const u8=S.upcoming.find(x=>x.id==='seedup8');if(u8&&u8.partner===''&&(u8.opps||[]).length===0){u8.partner='Griff';u8.opps=['Andy','Steve'];u8.sides={me:'L',partner:'R',o1:'R',o2:'L'};u8.gtype=suggestGT(u8.partner,u8.opps)}S.mig.wedpm1=1}
  if(force){const r3=S.sessions.find(y=>y.id==='real3');if(r3)r3.result='X'}
  save();localStorage.setItem('padellog.seed.v2','1')}catch(e){console.error('seed failed',e)}}
 seedReal();

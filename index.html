@@ -275,7 +275,7 @@ function vStats(){const ms=matches(),w=ms.filter(s=>s.result==='W').length;const
  const totC=S.sessions.reduce((a,s)=>a+sessCal(s),0);
  $('#app').innerHTML=`<div class="kpis"><div class="kpi"><small>Win rate</small><b>${PCT(grpStats(ms))}</b><small>${RS(grpStats(ms))}</small></div><div class="kpi"><small>Hours this month</small><b>${hrsM.toFixed(1)}</b></div><div class="kpi"><small>Week streak</small><b>${st}</b></div>${['L','R'].map(x=>{const o=grpStats(ms.filter(s=>sidesOf(s).me===x));return`<div class="kpi"><small>Me on ${x==='L'?'Left':'Right'}</small><b>${PCT(o)}</b><small>${RS(o)}</small></div>`}).join('')}<div class="kpi"><small>Total calories</small><b>${totC.toLocaleString()}</b></div></div>
  <div class="card"><h2>Last 8 matches</h2>${ms.slice(0,8).reverse().map(s=>`<span class="pill ${s.result}">${s.result}</span>`).join('')||'<span class="mut">No matches</span>'}</div>
- <div class="card"><h2>📈 My rating</h2><div style="display:flex;align-items:baseline;gap:8px"><b style="font-size:26px;color:var(--acc)">${rt('me').toFixed(2)}</b>${trendTxt(ratings().H.me)}</div><canvas id="myrc" height="150"></canvas>${rLegend('me')}</div>${gradeHTML(ms)}${typeSideHTML()}${leftyHTML(ms)}${bestHTML(ms)}
+ <div class="card"><h2>📈 My rating</h2><div style="display:flex;align-items:baseline;gap:8px"><b style="font-size:26px;color:var(--acc)">${rt('me').toFixed(2)}</b>${trendTxt(ratings().H.me)}</div><canvas id="myrc" height="150"></canvas>${rLegend('me')}</div>${gradeHTML(ms)}${typeSideHTML()}${leftyHTML(ms)}${bestHTML(ms)}${clutchHTML(ms)}${formLoadHTML(ms)}
  <div class="card" id="trcard"><h2>📈 Trends</h2><div class="seg">${['week','month','quarter','year'].map(g=>`<button class="${trG===g?'on':''}" onclick="trG='${g}';render()">${g[0].toUpperCase()+g.slice(1)}</button>`).join('')}</div><div id="insights" style="margin:10px 0"></div>${['Win % & games won %','Matches played','Hours & calories','Win % by side','Win % by time of day'].map((t,i)=>`<div class="mut" style="margin-top:10px">${t}</div><canvas id="tr${i}" height="170"></canvas>`).join('')}</div>
  <div class="card"><h2>🏆 Season summaries (quarters)</h2><div id="seasons"></div></div>
  <div class="card" id="calcard"><h2>🔥 Calories burned</h2><div class="seg">${['day','week','month','year'].map(g=>`<button class="${calG===g?'on':''}" onclick="calG='${g}';calOff=0;render()">${g[0].toUpperCase()+g.slice(1)}</button>`).join('')}</div>
@@ -308,6 +308,44 @@ function bestHTML(ms){const B=['Morning','Afternoon','Evening'].map(b=>[b,grpSta
  const D=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i)=>[d,grpStats(ms.filter(s=>(parse(s.date).getDay()+6)%7===i))]);
  const tbl=(rows,hl)=>`<table><tr><th></th><th>W-L</th><th>Win%</th><th>Games%</th><th>#</th></tr>${rows.map(([b,o])=>`<tr style="${hl&&best&&best[0]===b?'color:#c6f432;font-weight:700':''}"><td>${b}${hl&&best&&best[0]===b?' ⭐':''}</td><td>${RS(o)}</td><td>${PCT(o)}</td><td>${o.gp}</td><td>${o.n}</td></tr>`).join('')}</table>`;
  return`<div class="card"><h2>⏰ When I play best</h2>${tbl(B,1)}<div class="mut" style="margin:6px 0 12px">Morning &lt;12:00 · Afternoon 12–17 · Evening &gt;17:00${best?` · Best: <b style="color:#c6f432">${best[0]}</b>`:''}</div><h2>By day of week</h2>${tbl(D,0)}</div>`}
+// ---------- CLUTCH ----------
+function setsDone(s){return (s.sets||[]).filter(x=>x&&x[0]!==''&&x[1]!==''&&setDone(x[0],x[1])).map(x=>[+x[0],+x[1]])}
+function clutchHTML(ms){const three=ms.filter(s=>setsDone(s).length>=3);
+ const dec=ms.filter(s=>{const st=setsDone(s);return st.length>=3&&(st[0][0]>st[0][1])!==(st[1][0]>st[1][1])});
+ const decW=dec.filter(s=>setsDone(s)[2][0]>setsDone(s)[2][1]).length,decL=dec.length-decW;
+ const lost1=ms.filter(s=>{const st=setsDone(s);return st.length&&st[0][0]<st[0][1]}),won1=ms.filter(s=>{const st=setsDone(s);return st.length&&st[0][0]>st[0][1]});
+ let tW=0,tL=0;ms.forEach(s=>setsDone(s).forEach(([a,b])=>{if(Math.abs(a-b)===1){a>b?tW++:tL++}}));
+ const oAll=grpStats(ms),row=(t,l)=>{const o=grpStats(l);return`<tr><td>${t}</td><td>${l.length?RS(o):'—'}</td><td>${l.length?PCT(o):'—'}</td><td class="mut">${l.length}</td></tr>`};
+ const decPct=dec.length?Math.round(decW/dec.length*100):null;
+ const ins=dec.length>=3&&oAll.d?`<div style="margin-top:10px">💡 You win ${decPct}% of deciding sets vs ${PCT(oAll)} of matches overall — ${decPct>=Math.round(oAll.p*100)?'you close well when it goes the distance.':'deciders are leaking points vs your baseline.'}</div>`:lost1.length>=3?`<div style="margin-top:10px">💡 After dropping the first set you still win ${PCT(grpStats(lost1))} of matches (${RS(grpStats(lost1))}).</div>`:'';
+ if(!three.length&&!lost1.length&&!tW&&!tL)return`<div class="card"><h2>🎯 Clutch</h2><div class="mut">No set scores logged yet — clutch stats build from set-by-set scores.</div></div>`;
+ return`<div class="card"><h2>🎯 Clutch</h2><div class="kpis"><div class="kpi"><small>Deciding set</small><b>${decPct!=null?decPct+'%':'—'}</b><small>${dec.length?decW+'-'+decL:'no deciders yet'}</small></div><div class="kpi"><small>Comebacks (lost 1st, won match)</small><b>${lost1.length?grpStats(lost1).w:'—'}</b><small>${lost1.length?'of '+lost1.length+' matches':'—'}</small></div><div class="kpi"><small>7–6 sets</small><b>${tW+tL?tW+'-'+tL:'—'}</b><small>won–lost</small></div></div>
+ <table style="margin-top:10px"><tr><th>Situation</th><th>W-L</th><th>Win%</th><th>#</th></tr>${row('Went to 3 sets',three)}${row('After losing 1st set',lost1)}${row('After winning 1st set',won1)}</table>${ins}<div class="mut" style="margin-top:6px">Deciding set = 3rd set after splitting the first two. 7–6 sets = completed sets decided by one game.</div></div>`}
+// ---------- FORM & LOAD ----------
+function formLoadHTML(ms){const nm=allNames();
+ const asc=[...ms].sort((a,b)=>a.date.localeCompare(b.date)||(a.time||'').localeCompare(b.time||'')||(a.ts||0)-(b.ts||0));
+ const flip=r=>r==='W'?'L':r==='L'?'W':r,seq={};
+ const push=(k,r)=>{if(k)(seq[k]=seq[k]||[]).push(r)};
+ asc.forEach(s=>{push('me',s.result);push(key(s.partner),s.result);(s.opps||[]).forEach(o=>push(key(o),flip(s.result)))});
+ const rows=Object.entries(seq).map(([k,l])=>{const last=l.slice(-10),w=last.filter(r=>r==='W').length,lo=last.filter(r=>r==='L').length;return{k,n:k==='me'?'Me':(nm[k]||k),last,w,lo,d:w+lo,tot:l.length}}).filter(o=>o.tot>=3).sort((a,b)=>(b.d?b.w/b.d:-1)-(a.d?a.w/a.d:-1)||b.tot-a.tot);
+ const seqHTML=l=>l.map(r=>`<span style="color:${r==='W'?'var(--win)':r==='L'?'var(--loss)':r==='X'?'#ffd60a':'var(--mut)'};font-weight:700">${r}</span>`).join(' ');
+ // load: rest category per match, from the previous match's date
+ const cats={'Second match same day':[],'Played day before':[],'1 rest day':[],'2+ rest days':[]};
+ for(let i=1;i<asc.length;i++){const gap=Math.round((parse(asc[i].date)-parse(asc[i-1].date))/864e5);cats[gap<=0?'Second match same day':gap===1?'Played day before':gap===2?'1 rest day':'2+ rest days'].push(asc[i])}
+ const now=new Date();now.setHours(0,0,0,0);
+ const inDays=n=>ms.filter(s=>Math.round((now-parse(s.date))/864e5)<n&&parse(s.date)<=now);
+ const l7=inDays(7),l28=inDays(28),hrs7=(l7.reduce((a,s)=>a+s.mins,0)/60).toFixed(1);
+ const days=[...new Set(ms.map(s=>s.date))].sort();let bestRun=0,run=0;days.forEach((d,i)=>{run=i&&Math.round((parse(d)-parse(days[i-1]))/864e5)===1?run+1:1;if(run>bestRun)bestRun=run});
+ const dhDays=days.filter(d=>ms.filter(s=>s.date===d).length>=2).length;
+ const upToday=(S.upcoming||[]).filter(u=>u.date===today()).length;
+ const catRows=Object.entries(cats).map(([t,l])=>{const o=grpStats(l);return`<tr><td>${t}</td><td>${l.length?RS(o):'—'}</td><td>${l.length?PCT(o):'—'}</td><td class="mut">${l.length}</td></tr>`}).join('');
+ const noRest=grpStats([...cats['Second match same day'],...cats['Played day before']]),rested=grpStats(cats['2+ rest days']);
+ const ins=noRest.d>=3&&rested.d>=3?`<div style="margin-top:10px">💡 Rested (2+ days off) you win ${PCT(rested)} vs ${PCT(noRest)} on no rest — ${rested.p>=noRest.p?'rest is worth real points to you.':'and it makes no difference. Keep playing.'}</div>`:'';
+ return`<div class="card"><h2>🔥 Form — last 10</h2><div class="mut" style="margin-bottom:6px">Each player's last 10 matches, oldest → newest, from their side of the net.</div>
+ <table><tr><th>Player</th><th>Form</th><th>W-L</th><th>Win%</th><th>Rating</th></tr>${rows.map(o=>`<tr${o.k==='me'?' style="background:rgba(198,244,50,.06)"':''}><td>${o.k==='me'?'<b>Me</b>':P(o.n)}</td><td style="white-space:nowrap;font-size:12px">${seqHTML(o.last)}</td><td>${o.w}-${o.lo}</td><td>${o.d?Math.round(o.w/o.d*100)+'%':'—'}</td><td><b>${rt(o.k).toFixed(2)}</b></td></tr>`).join('')||'<tr><td colspan=5 class="mut">Not enough matches yet</td></tr>'}</table></div>
+ <div class="card"><h2>⚡ Load</h2><div class="kpis"><div class="kpi"><small>Matches · 7 days</small><b>${l7.length}</b><small>${hrs7} hrs on court</small></div><div class="kpi"><small>Matches · 28 days</small><b>${l28.length}</b></div><div class="kpi"><small>Longest run</small><b>${bestRun}</b><small>days in a row</small></div><div class="kpi"><small>Double-header days</small><b>${dhDays}</b></div></div>
+ ${upToday?`<div style="margin-top:10px;${upToday>=2?'color:#ffd60a':''}">${upToday>=2?'⚠️ ':''}${upToday} match${upToday>1?'es':''} scheduled today.</div>`:''}
+ <table style="margin-top:10px"><tr><th>Coming in…</th><th>W-L</th><th>Win%</th><th>#</th></tr>${catRows}</table>${ins}</div>`}
 // ---------- MATCHUPS ----------
 let mSub='bydate',mF='';
 function playerRecs(){const R={};const add=(n,side,res)=>{const k=key(n);if(!k)return;const o=R[k]=R[k]||{w:0,l:0,t:0,L:[0,0,0],R:[0,0,0]};const ix=res==='W'?0:res==='L'?1:2;o['wlt'[ix]]++;if(side)o[side][ix]++};

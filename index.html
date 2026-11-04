@@ -538,6 +538,8 @@ function seedReal(force){try{if(!Array.isArray(S.sessions))S.sessions=[];if(!Arr
  if(!S.upcoming.some(x=>x.id===U14.id)&&!S.sessions.some(x=>x.id===U14.id)&&!S.deletedSeeds.includes(U14.id))S.upcoming.push(U14);
  const U15={id:'seedup15',date:'2026-11-03',time:'13:00',mins:90,int:'Normal',club:'',notes:'',partner:'Steve',opps:['Giacomo','Russ'],sides:{me:'L',partner:'R',o1:'L',o2:'R'}};
  if(!S.upcoming.some(x=>x.id===U15.id)&&!S.sessions.some(x=>x.id===U15.id)&&!S.deletedSeeds.includes(U15.id))S.upcoming.push(U15);
+ const U16={id:'seedup16',date:'2026-11-11',time:'13:00',mins:90,int:'Normal',club:'',notes:'',partner:'Steve',opps:['Giacomo','Russ'],sides:{me:'L',partner:'R',o1:'L',o2:'R'}};
+ if(!S.upcoming.some(x=>x.id===U16.id)&&!S.sessions.some(x=>x.id===U16.id)&&!S.deletedSeeds.includes(U16.id))S.upcoming.push(U16);
  if(!S.mig.wk44){S.upcoming.forEach(u=>{if(!u.gtype)u.gtype=suggestGT(u.partner,u.opps||[])});S.mig.wk44=1}
  if(!S.mig.profile1){S.profile=Object.assign({bf:13.5,age:42,heightIn:68,sex:'M',rhr:44},S.profile||{});S.weight=145;S.unit='lb';S.mig.profile1=1}
  if(!S.mig.gt1){const pre=ratings().pre;const sg=(m)=>{const p=pre[m.id];const ks=[key(m.partner),...(m.opps||[]).map(key)].filter(Boolean);if(!ks.length)return'I';const a=ks.reduce((x,k)=>x+(p&&p[k]!=null?p[k]:rt(k)),0)/ks.length;return a>=4.5?'A':'I'};S.sessions.forEach(m=>{if(m.type==='match'&&!m.gtype)m.gtype=sg(m)});S.upcoming.forEach(u=>{if(!u.gtype)u.gtype=suggestGT(u.partner,u.opps)});S.mig.gt1=1}

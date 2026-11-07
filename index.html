@@ -540,7 +540,7 @@ function seedReal(force){try{if(!Array.isArray(S.sessions))S.sessions=[];if(!Arr
  if(!S.upcoming.some(x=>x.id===U15.id)&&!S.sessions.some(x=>x.id===U15.id)&&!S.deletedSeeds.includes(U15.id))S.upcoming.push(U15);
  const U16={id:'seedup16',date:'2026-11-11',time:'13:00',mins:90,int:'Normal',club:'',notes:'',partner:'Steve',opps:['Giacomo','Russ'],sides:{me:'L',partner:'R',o1:'L',o2:'R'}};
  if(!S.upcoming.some(x=>x.id===U16.id)&&!S.sessions.some(x=>x.id===U16.id)&&!S.deletedSeeds.includes(U16.id))S.upcoming.push(U16);
- const U17={id:'seedup17',date:'2026-11-09',time:'06:45',mins:90,int:'Normal',club:'',notes:'',partner:'Juan',opps:['Umberto','Ed'],sides:{me:'R',partner:'L',o1:'R',o2:'L'}};
+ const U17={id:'seedup17',date:'2026-11-09',time:'06:45',mins:90,int:'Normal',club:'',notes:'',partner:'Juan',opps:['Umberto','Pietro'],sides:{me:'R',partner:'L',o1:'L',o2:'R'}};
  if(!S.upcoming.some(x=>x.id===U17.id)&&!S.sessions.some(x=>x.id===U17.id)&&!S.deletedSeeds.includes(U17.id))S.upcoming.push(U17);
  const U18={id:'seedup18',date:'2026-11-09',time:'13:00',mins:90,int:'Normal',club:'',notes:'',partner:'Griff',opps:['Anders','Russ B'],sides:{me:'L',partner:'R',o1:'R',o2:'L'}};
  if(!S.upcoming.some(x=>x.id===U18.id)&&!S.sessions.some(x=>x.id===U18.id)&&!S.deletedSeeds.includes(U18.id))S.upcoming.push(U18);
@@ -567,6 +567,7 @@ function seedReal(force){try{if(!Array.isArray(S.sessions))S.sessions=[];if(!Arr
  if(!S.mig.thu1){const u9=S.upcoming.find(x=>x.id==='seedup9');if(u9&&u9.partner==='Griff'&&(u9.opps||[]).join('|')==='Robbie|Miles'){u9.partner='Andy';u9.opps=['Adam','Juan'];u9.sides={me:'L',partner:'R',o1:'R',o2:'L'};u9.gtype=suggestGT(u9.partner,u9.opps)}S.mig.thu1=1}
  if(!S.mig.fri1pm1){const u10=S.upcoming.find(x=>x.id==='seedup10');if(u10&&u10.partner==='Griff'&&(u10.opps||[]).join('|')==='Russ|Miles'){u10.partner='Steve';u10.opps=['Daniel','Juan'];u10.sides={me:'L',partner:'R',o1:'L',o2:'R'};u10.gtype=suggestGT(u10.partner,u10.opps)}S.mig.fri1pm1=1}
  if(!S.mig.tomsub1){const u13=S.upcoming.find(x=>x.id==='seedup13');if(u13&&(u13.opps||[]).join('|')==='Umberto|Tom'){u13.opps=['Umberto','Marcos'];u13.gtype=suggestGT(u13.partner,u13.opps)}S.mig.tomsub1=1}
+if(!S.mig.mon645p1){const u17=S.upcoming.find(x=>x.id==='seedup17');if(u17&&(u17.opps||[]).join('|')==='Umberto|Ed'){u17.opps=['Umberto','Pietro'];u17.sides={me:'R',partner:'L',o1:'L',o2:'R'};u17.gtype=suggestGT(u17.partner,u17.opps)}S.mig.mon645p1=1}
  if(force){const r3=S.sessions.find(y=>y.id==='real3');if(r3)r3.result='X'}
  save();localStorage.setItem('padellog.seed.v2','1')}catch(e){console.error('seed failed',e)}}
 seedReal();

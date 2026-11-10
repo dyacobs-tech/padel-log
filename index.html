@@ -132,12 +132,12 @@ const scoreStr=s=>(s.sets||[]).filter(x=>x&&(x[0]!==''||x[1]!=='')).map(x=>x[0]+
 const gamesOf=s=>(s.sets||[]).reduce((a,x)=>[a[0]+(+x[0]||0),a[1]+(+x[1]||0)],[0,0]);
 
 let tab="stats",editId=null,F=null;
-const ICONS={"players":"<circle cx=\"12\" cy=\"7.5\" r=\"3.5\"/><path d=\"M5 20.5c.9-4 3.7-6.5 7-6.5s6.1 2.5 7 6.5\"/>","log": "<path d=\"M12 5v14M5 12h14\"/>", "cal": "<rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"3\"/><path d=\"M3 10h18M8 3v4M16 3v4\"/>", "stats": "<path d=\"M4 20V10M10 20V4M16 20v-7M22 20H2\"/>", "match": "<circle cx=\"9\" cy=\"8\" r=\"3.5\"/><path d=\"M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5\"/><circle cx=\"17\" cy=\"9\" r=\"2.5\"/><path d=\"M17 14c2.4 0 4 1.6 4.6 4.5\"/>", "hist": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 2\"/>", "set": "<circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z\"/>"};
-const TABS=[['log','➕','Log'],['cal','📅','Calendar'],['stats','📊','Stats'],['match','🤝','Matchups'],['players','🧑','Players'],['hist','📜','History'],['set','⚙️','Settings']];
+const ICONS={"train":"<path d=\"M4 9v6M7 6.5v11M17 6.5v11M20 9v6M7 12h10\"/>","players":"<circle cx=\"12\" cy=\"7.5\" r=\"3.5\"/><path d=\"M5 20.5c.9-4 3.7-6.5 7-6.5s6.1 2.5 7 6.5\"/>","log": "<path d=\"M12 5v14M5 12h14\"/>", "cal": "<rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"3\"/><path d=\"M3 10h18M8 3v4M16 3v4\"/>", "stats": "<path d=\"M4 20V10M10 20V4M16 20v-7M22 20H2\"/>", "match": "<circle cx=\"9\" cy=\"8\" r=\"3.5\"/><path d=\"M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5\"/><circle cx=\"17\" cy=\"9\" r=\"2.5\"/><path d=\"M17 14c2.4 0 4 1.6 4.6 4.5\"/>", "hist": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 2\"/>", "set": "<circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z\"/>"};
+const TABS=[['log','➕','Log'],['cal','📅','Calendar'],['stats','📊','Stats'],['match','🤝','Matchups'],['train','🏋️','Training'],['players','🧑','Players'],['hist','📜','History'],['set','⚙️','Settings']];
 function renderNav(){$('#nav').innerHTML=TABS.map(t=>`<button class="${tab===t[0]?'on':''}" onclick="go('${t[0]}')"><svg viewBox="0 0 24 24">${ICONS[t[0]]}</svg>${t[2]}</button>`).join('')}
 let charts=[];function killCharts(){charts.forEach(c=>c.destroy());charts=[]}
 function go(t){tab=t;closeModal();render();scrollTo(0,0)}
-function render(){killCharts();renderNav();renderDue();$('#hdrinfo').textContent=S.sessions.length+' sessions';({log:vLog,cal:vCal,stats:vStats,match:vMatch,players:vPlayers,hist:vHist,set:vSet})[tab]();if(tab==='stats'||tab==='match')$('#app').insertAdjacentHTML('afterbegin',gtChip());
+function render(){killCharts();renderNav();renderDue();$('#hdrinfo').textContent=S.sessions.length+' sessions';({log:vLog,cal:vCal,stats:vStats,match:vMatch,train:vTrain,players:vPlayers,hist:vHist,set:vSet})[tab]();if(tab==='stats'||tab==='match')$('#app').insertAdjacentHTML('afterbegin',gtChip());
  $('#names').innerHTML=Object.values(allNames()).sort().map(n=>`<option value="${esc(n)}">`).join('')}
 
 // ---------- LOG ----------
@@ -178,7 +178,7 @@ function vLog(){
  <label>Result</label><div class="seg" id="resseg">${resBtns()}</div><div class="mut" style="margin-top:4px">Auto-suggested from the score; tap to override.</div>`}
  <label>Club / court</label><input value="${esc(f.club)}" oninput="F.club=this.value" placeholder="Club or court">`:`<label>Club / location</label><input value="${esc(f.club)}" oninput="F.club=this.value">`}
  <label>How I played <span class="mut">(optional)</span></label><div class="seg" id="grseg">${grBtns()}</div>
- <label>Notes</label><textarea rows="2" oninput="F.notes=this.value">${esc(f.notes)}</textarea>
+ <label>${f.type==='training'?'Session notes — what you worked on':'Notes'}</label><textarea rows="2" ${f.type==='training'?'placeholder="Drills, focus areas, how it felt…" ':''}oninput="F.notes=this.value">${esc(f.notes)}</textarea>
  <div class="kpi" style="margin-top:12px"><small>Estimated calories (lean-mass MET)</small><b id="calest"></b></div>
  <details style="margin-top:8px"><summary class="mut" style="cursor:pointer">More (manual calories, avg HR)</summary><div class="row"><div><label>Calories override</label><input type="number" min="0" placeholder="auto" value="${f.kcal||''}" oninput="F.kcal=this.value"></div><div><label>Avg HR (optional)</label><input type="number" min="0" placeholder="bpm" value="${f.hr||''}" oninput="F.hr=this.value"></div></div></details>
  <button class="btn" onclick="saveForm()">${up?(f.upEdit?'Save upcoming match':'Schedule match'):f.upId?(f.type==='training'?'Log session':'Log result'):editId?'Save changes':'Log session'}</button>
@@ -394,6 +394,12 @@ function vHist(){const l=sorted();
  const A=l.filter(s=>s.type==='match'&&s.gtype==='A'),I=l.filter(s=>s.type==='match'&&s.gtype!=='A'),T=l.filter(s=>s.type==='training');
  const sec=(t,list,rec)=>`<div class="card"><h2>${t}</h2><div class="mut" style="margin-bottom:8px">${list.length} session${list.length===1?'':'s'}${rec?' · '+rec:''}</div>${list.map(s=>itemHTML(s)).join('')||'<div class="mut">None yet.</div>'}</div>`;
  $('#app').innerHTML=`${upListHTML()}${sec('🏆 Advanced',A,A.length?RS(grpStats(A)):'')}${sec('🎾 Intermediate',I,I.length?RS(grpStats(I)):'')}${sec('🏋️ Training',T)}`}
+
+// ---------- TRAINING ----------
+function newTrain(){editId=null;F=blank();F.type='training';go('log')}
+function vTrain(){const T=sorted().filter(s=>s.type==='training'),up=upSorted().filter(isTrainUp);
+ const hrs=T.reduce((a,s)=>a+s.mins,0)/60,mk=iso(new Date()).slice(0,7),tm=T.filter(s=>s.date.slice(0,7)===mk);
+ $('#app').innerHTML=`${up.length?`<div class="card"><h2>📅 Upcoming training</h2>${up.map(u=>upItem(u)).join('')}</div>`:''}<div class="card"><h2>🏋️ Training sessions</h2><div class="mut" style="margin-bottom:8px">${T.length} session${T.length===1?'':'s'} · ${hrs.toFixed(1)}h total${tm.length?` · ${tm.length} this month`:''}</div><button class="btn" style="margin-top:0" onclick="newTrain()">＋ Log training session</button>${T.map(s=>itemHTML(s)).join('')||'<div class="mut" style="margin-top:10px">None yet.</div>'}<div class="mut" style="margin-top:8px">Tap Edit on any session to add notes on what you worked on — they show right under the session.</div></div>`}
 
 // ---------- MATCH DETAIL
 function openMatch(id){const s=S.sessions.find(x=>x.id===id);if(!s)return;curPlayer=null;

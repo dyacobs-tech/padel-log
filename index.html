@@ -164,8 +164,8 @@ function setSide(w,v){F.sides[w]=v;if(w==='me')F.sides.partner=opp(v);if(w==='o1
 const sideSeg=(w,l)=>`<div class="row" style="align-items:center;margin-top:4px"><span class="mut" style="flex:0 0 90px">${l}</span><div class="seg">${['L','R'].map(v=>`<button class="${F.sides[w]===v?'on':''}" onclick="setSide('${w}','${v}')">${v==='L'?'Left':'Right'}</button>`).join('')}</div></div>`;
 function vLog(){
  if(!F)F=blank();if(!F.gtype)F.gtype=suggestGT(F.partner,F.opps);const f=F,up=f.type==='upcoming',m=f.type==='match'||up;
- $('#app').innerHTML=`${upListHTML()}<div class="card"><h2>${f.upEdit?'Edit upcoming match':f.upId?'How did it go? Enter score & result':editId?'Edit session':'New session'}</h2>
- <div class="seg">${(f.upId?['match']:f.upEdit?['upcoming']:['match','training','upcoming']).map(t=>`<button class="${f.type===t?'on':''}" onclick="F.type='${t}';vLog()">${t==='match'?'🎾 Match':t==='training'?'🏋️ Training':'📅 Upcoming'}</button>`).join('')}</div>
+ $('#app').innerHTML=`${upListHTML()}<div class="card"><h2>${f.upEdit?'Edit upcoming match':f.upId?(f.type==='training'?'Log training session':'How did it go? Enter score & result'):editId?'Edit session':'New session'}</h2>
+ <div class="seg">${(f.upId?[f.type]:f.upEdit?['upcoming']:['match','training','upcoming']).map(t=>`<button class="${f.type===t?'on':''}" onclick="F.type='${t}';vLog()">${t==='match'?'🎾 Match':t==='training'?'🏋️ Training':'📅 Upcoming'}</button>`).join('')}</div>
  <label>Date</label><input type="date" value="${f.date}" onchange="F.date=this.value"><label>Start time</label><input type="time" value="${F.time||''}" onchange="F.time=this.value">
  <label>Duration</label><div class="seg">${[60,90,120].map(v=>`<button class="${f.mins==v?'on':''}" onclick="F.mins=${v};vLog()">${v/60}h</button>`).join('')}</div>
  <input type="number" min="1" style="margin-top:6px" value="${f.mins}" oninput="F.mins=+this.value;upd()" placeholder="minutes">
@@ -181,11 +181,11 @@ function vLog(){
  <label>Notes</label><textarea rows="2" oninput="F.notes=this.value">${esc(f.notes)}</textarea>
  <div class="kpi" style="margin-top:12px"><small>Estimated calories (lean-mass MET)</small><b id="calest"></b></div>
  <details style="margin-top:8px"><summary class="mut" style="cursor:pointer">More (manual calories, avg HR)</summary><div class="row"><div><label>Calories override</label><input type="number" min="0" placeholder="auto" value="${f.kcal||''}" oninput="F.kcal=this.value"></div><div><label>Avg HR (optional)</label><input type="number" min="0" placeholder="bpm" value="${f.hr||''}" oninput="F.hr=this.value"></div></div></details>
- <button class="btn" onclick="saveForm()">${up?(f.upEdit?'Save upcoming match':'Schedule match'):f.upId?'Log result':editId?'Save changes':'Log session'}</button>
+ <button class="btn" onclick="saveForm()">${up?(f.upEdit?'Save upcoming match':'Schedule match'):f.upId?(f.type==='training'?'Log session':'Log result'):editId?'Save changes':'Log session'}</button>
  ${editId||f.upEdit||f.upId?`<button class="btn sec" onclick="editId=null;F=blank();vLog()">${f.upId?'Not now':'Cancel edit'}</button>`:''}</div>`;upd()}
 function upd(){const e=$('#calest');if(e)e.textContent=cals(F.type==='upcoming'?'match':F.type,F.mins||0,F.int)+' kcal'}
 function saveForm(){const f=F;if(!f.date||!(f.mins>0))return alert('Date and duration required');
- if(f.type==='upcoming'){const nm=allNames();const c=n=>nm[key(n)]||norm(n);const u={id:f.upEdit||uid(),date:f.date,time:f.time||'',mins:+f.mins,int:f.int,club:norm(f.club),notes:f.notes.trim(),partner:c(f.partner),opps:f.opps.map(c),sides:{...f.sides},gtype:f.gtype||suggestGT(f.partner,f.opps)};
+ if(f.type==='upcoming'){const nm=allNames();const c=n=>nm[key(n)]||norm(n);const u={id:f.upEdit||uid(),date:f.date,time:f.time||'',mins:+f.mins,int:f.int,club:norm(f.club),notes:f.notes.trim(),partner:c(f.partner),opps:f.opps.map(c),sides:{...f.sides},gtype:f.gtype||suggestGT(f.partner,f.opps)};if(f.kind)u.kind=f.kind;
   S.upcoming=S.upcoming.filter(x=>x.id!==u.id);S.upcoming.push(u);save();editId=null;F=blank();selDay=u.date;go('log');return}
  if(f.upId)S.upcoming=S.upcoming.filter(x=>x.id!==f.upId);
  const s={id:editId||f.upId||uid(),ts:Date.now(),type:f.type,date:f.date,time:f.time||'',mins:+f.mins,int:f.int,club:norm(f.club),notes:f.notes.trim()};if(+f.kcal>0)s.kcal=+f.kcal;if(f.grade)s.grade=f.grade;if(+f.hr>0)s.hr=+f.hr;
@@ -206,15 +206,22 @@ const upStart=u=>{const d=parse(u.date);const[h,mi]=(u.time||'23:59').split(':')
 const upSorted=()=>[...S.upcoming].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
 const dueList=()=>upSorted().filter(u=>upStart(u)<=new Date());
 const TBD='<span class="mut">TBD</span>';
-function upItem(u,showDate=true){const d=sidesOf(u),due=upEnd(u)<=new Date(),started=upStart(u)<=new Date();return`<div class="item"><div class="top"><div><span class="tag" style="border:1.5px solid var(--acc);color:var(--acc)">${due?'PLAYED?':'UPCOMING'}</span>${u.gtype?` <span class="mut" style="font-size:12px">${GT[u.gtype]}</span>`:''} <b>${showDate?fmtD(u.date):''}${u.time?' '+u.time:''}</b></div><div class="acts">${started?`<button style="color:var(--acc)" onclick="completeUp('${u.id}')">Log result</button>`:''}<button onclick="editUp('${u.id}')">Edit</button><button onclick="cancelUp('${u.id}')">Cancel</button></div></div>
+const isTrainUp=u=>u.kind==='T';
+function upItem(u,showDate=true){const d=sidesOf(u),due=upEnd(u)<=new Date(),started=upStart(u)<=new Date();
+ if(isTrainUp(u))return`<div class="item"><div class="top"><div><span class="tag T">TRAINING</span> <b>${showDate?fmtD(u.date):''}${u.time?' '+u.time:''}</b></div><div class="acts">${started?`<button style="color:var(--acc)" onclick="completeTrainUp('${u.id}')">Log session</button>`:''}<button onclick="cancelUp('${u.id}')">Cancel</button></div></div><div class="mut">${u.mins} min · ${u.int||'Normal'}${u.club?' · '+esc(u.club):''}${u.notes&&!/^training$/i.test(u.notes)?' · '+esc(u.notes):''}</div></div>`;
+ return`<div class="item"><div class="top"><div><span class="tag" style="border:1.5px solid var(--acc);color:var(--acc)">${due?'PLAYED?':'UPCOMING'}</span>${u.gtype?` <span class="mut" style="font-size:12px">${GT[u.gtype]}</span>`:''} <b>${showDate?fmtD(u.date):''}${u.time?' '+u.time:''}</b></div><div class="acts">${started?`<button style="color:var(--acc)" onclick="completeUp('${u.id}')">Log result</button>`:''}<button onclick="editUp('${u.id}')">Edit</button><button onclick="cancelUp('${u.id}')">Cancel</button></div></div>
  <div>Me${SD(d.me)} w/ ${u.partner?P(u.partner)+SD(d.partner):TBD} vs ${u.opps[0]?P(u.opps[0])+SD(d.o1):TBD} & ${u.opps[1]?P(u.opps[1])+SD(d.o2):TBD}</div><div class="mut">${u.mins} min${u.club?' · '+esc(u.club):''}</div></div>`}
-function upListHTML(){const l=upSorted();return l.length?`<div class="card"><h2>📅 Upcoming</h2>${l.map(u=>upItem(u)).join('')}</div>`:''}
+function upListHTML(){const l=upSorted();if(!l.length)return'';
+ const A=l.filter(u=>!isTrainUp(u)&&u.gtype==='A'),I=l.filter(u=>!isTrainUp(u)&&u.gtype!=='A'),T=l.filter(isTrainUp);
+ const grp=(t,list)=>list.length?`<div style="font-weight:700;margin:12px 0 6px">${t}</div>${list.map(u=>upItem(u)).join('')}`:'';
+ return`<div class="card"><h2>📅 Upcoming</h2>${grp('🏆 Advanced',A)}${grp('🎾 Intermediate',I)}${grp('🏋️ Training',T)}</div>`}
 function upToF(u){return Object.assign(blank(),JSON.parse(JSON.stringify(u)),{gtManual:u.gtype?1:0,sets:[['',''],['',''],['','']],result:'W'})}
 function editUp(id){const u=S.upcoming.find(x=>x.id===id);editId=null;F=upToF(u);F.type='upcoming';F.upEdit=id;go('log')}
 function completeUp(id){const u=S.upcoming.find(x=>x.id===id);editId=null;F=upToF(u);F.type='match';F.upId=id;go('log')}
+function completeTrainUp(id){const u=S.upcoming.find(x=>x.id===id);editId=null;F=upToF(u);F.type='training';F.upId=id;go('log')}
 function cancelUp(id){if(!confirm('Cancel this upcoming match?'))return;if(id.indexOf('seedup')===0){S.deletedSeeds=S.deletedSeeds||[];S.deletedSeeds.push(id)}S.upcoming=S.upcoming.filter(x=>x.id!==id);save();render()}
 function renderDue(){const l=dueList(),e=$('#due');if(tab==='log'&&F&&F.upId){e.innerHTML='';return}
- e.innerHTML=l.length?`<main style="animation:none"><div class="card" style="border:1.5px solid var(--acc);background:linear-gradient(135deg,rgba(198,244,50,.16),rgba(198,244,50,.04))"><h2 style="color:var(--acc)">🎾 How did it go?</h2>${l.map(u=>`<div class="item"><div><b>${fmtD(u.date)}${u.time?' · '+u.time:''}</b></div><div class="mut">w/ ${esc(u.partner)||'—'} vs ${esc(u.opps[0])||'—'} & ${esc(u.opps[1])||'—'}</div><button class="btn" style="margin-top:8px" onclick="completeUp('${u.id}')">Enter score & result</button></div>`).join('')}</div></main>`:''}
+ e.innerHTML=l.length?`<main style="animation:none"><div class="card" style="border:1.5px solid var(--acc);background:linear-gradient(135deg,rgba(198,244,50,.16),rgba(198,244,50,.04))"><h2 style="color:var(--acc)">🎾 How did it go?</h2>${l.map(u=>isTrainUp(u)?`<div class="item"><div><b>${fmtD(u.date)}${u.time?' · '+u.time:''}</b></div><div class="mut">🏋️ Training session</div><button class="btn" style="margin-top:8px" onclick="completeTrainUp('${u.id}')">Log training session</button></div>`:`<div class="item"><div><b>${fmtD(u.date)}${u.time?' · '+u.time:''}</b></div><div class="mut">w/ ${esc(u.partner)||'—'} vs ${esc(u.opps[0])||'—'} & ${esc(u.opps[1])||'—'}</div><button class="btn" style="margin-top:8px" onclick="completeUp('${u.id}')">Enter score & result</button></div>`).join('')}</div></main>`:''}
 setInterval(()=>{if(dueList().length!==($('#due').querySelectorAll('.item').length))renderDue()},60000);
 // ---------- PREDICTOR ----------
 function predictHTML(u){const all=allM(),nm=allNames(),d=sidesOf(u);const pk=key(u.partner),o=(u.opps||[]).map(key);const nmK=k=>esc(nm[k]||k);
@@ -383,9 +390,10 @@ function vMatch(){const ms=matches(),nm=allNames();if(mSub==='cross'){const g={}
 
 const segM=()=>`<div class="seg" style="flex-wrap:wrap">${[['bydate','By date'],['matches','All games'],['ratings','Ratings'],['cross','Cross-court'],['partners','Partners'],['opps','Opponents'],['pairs','Pairs'],['players','Players']].map(t=>`<button style="padding:8px 4px;font-size:13px;flex:1 0 30%;white-space:nowrap" class="${mSub===t[0]?'on':''}" onclick="mSub='${t[0]}';render()">${t[1]}</button>`).join('')}</div>`;
 // ---------- HISTORY ----------
-let hF='all';
-function vHist(){const l=sorted().filter(s=>hF==='all'||s.type===hF);
- $('#app').innerHTML=`${upListHTML()}<div class="card"><div class="seg">${['all','match','training'].map(t=>`<button class="${hF===t?'on':''}" onclick="hF='${t}';vHist()">${t[0].toUpperCase()+t.slice(1)}</button>`).join('')}</div>${l.map(s=>itemHTML(s)).join('')||'<div class="mut" style="margin-top:10px">No sessions yet.</div>'}</div>`}
+function vHist(){const l=sorted();
+ const A=l.filter(s=>s.type==='match'&&s.gtype==='A'),I=l.filter(s=>s.type==='match'&&s.gtype!=='A'),T=l.filter(s=>s.type==='training');
+ const sec=(t,list,rec)=>`<div class="card"><h2>${t}</h2><div class="mut" style="margin-bottom:8px">${list.length} session${list.length===1?'':'s'}${rec?' · '+rec:''}</div>${list.map(s=>itemHTML(s)).join('')||'<div class="mut">None yet.</div>'}</div>`;
+ $('#app').innerHTML=`${upListHTML()}${sec('🏆 Advanced',A,A.length?RS(grpStats(A)):'')}${sec('🎾 Intermediate',I,I.length?RS(grpStats(I)):'')}${sec('🏋️ Training',T)}`}
 
 // ---------- MATCH DETAIL
 function openMatch(id){const s=S.sessions.find(x=>x.id===id);if(!s)return;curPlayer=null;
@@ -544,7 +552,7 @@ function seedReal(force){try{if(!Array.isArray(S.sessions))S.sessions=[];if(!Arr
  if(!S.upcoming.some(x=>x.id===U17.id)&&!S.sessions.some(x=>x.id===U17.id)&&!S.deletedSeeds.includes(U17.id))S.upcoming.push(U17);
  const U18={id:'seedup18',date:'2026-11-09',time:'13:00',mins:90,int:'Normal',club:'',notes:'',partner:'Griff',opps:['Anders','Russ B'],sides:{me:'L',partner:'R',o1:'R',o2:'L'}};
  if(!S.upcoming.some(x=>x.id===U18.id)&&!S.sessions.some(x=>x.id===U18.id)&&!S.deletedSeeds.includes(U18.id))S.upcoming.push(U18);
- const U19={id:'seedup19',date:'2026-11-10',time:'13:00',mins:90,int:'Normal',club:'',notes:'Training',partner:'',opps:[],sides:{me:'L'}};
+ const U19={id:'seedup19',date:'2026-11-10',time:'13:00',mins:90,int:'Normal',club:'',notes:'Training',kind:'T',partner:'',opps:[],sides:{me:'L'}};
  if(!S.upcoming.some(x=>x.id===U19.id)&&!S.sessions.some(x=>x.id===U19.id)&&!S.deletedSeeds.includes(U19.id))S.upcoming.push(U19);
  const U20={id:'seedup20',date:'2026-11-11',time:'06:45',mins:90,int:'Normal',club:'',notes:'',partner:'Juan',opps:['Umberto','TBD'],sides:{me:'R',partner:'L',o1:'L',o2:'R'}};
  if(!S.upcoming.some(x=>x.id===U20.id)&&!S.sessions.some(x=>x.id===U20.id)&&!S.deletedSeeds.includes(U20.id))S.upcoming.push(U20);
@@ -568,6 +576,7 @@ function seedReal(force){try{if(!Array.isArray(S.sessions))S.sessions=[];if(!Arr
  if(!S.mig.fri1pm1){const u10=S.upcoming.find(x=>x.id==='seedup10');if(u10&&u10.partner==='Griff'&&(u10.opps||[]).join('|')==='Russ|Miles'){u10.partner='Steve';u10.opps=['Daniel','Juan'];u10.sides={me:'L',partner:'R',o1:'L',o2:'R'};u10.gtype=suggestGT(u10.partner,u10.opps)}S.mig.fri1pm1=1}
  if(!S.mig.tomsub1){const u13=S.upcoming.find(x=>x.id==='seedup13');if(u13&&(u13.opps||[]).join('|')==='Umberto|Tom'){u13.opps=['Umberto','Marcos'];u13.gtype=suggestGT(u13.partner,u13.opps)}S.mig.tomsub1=1}
 if(!S.mig.mon645p1){const u17=S.upcoming.find(x=>x.id==='seedup17');if(u17&&(u17.opps||[]).join('|')==='Umberto|Ed'){u17.opps=['Umberto','Pietro'];u17.sides={me:'R',partner:'L',o1:'L',o2:'R'};u17.gtype=suggestGT(u17.partner,u17.opps)}S.mig.mon645p1=1}
+ if(!S.mig.sec1){S.upcoming.forEach(u=>{if(!u.kind&&!key(u.partner||'')&&!(u.opps||[]).some(x=>key(x))&&/training/i.test(u.notes||''))u.kind='T'});S.mig.sec1=1}
  if(force){const r3=S.sessions.find(y=>y.id==='real3');if(r3)r3.result='X'}
  save();localStorage.setItem('padellog.seed.v2','1')}catch(e){console.error('seed failed',e)}}
 seedReal();

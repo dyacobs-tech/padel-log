@@ -156,7 +156,7 @@ const opp=x=>x==='L'?'R':'L';const SD=x=>x?` <small class="tag" style="backgroun
 const sidesOf=s=>s.sides||{};
 function sideFor(s,k){const d=sidesOf(s);if(key(s.partner)===k)return d.partner;if(key(s.opps[0])===k)return d.o1;if(key(s.opps[1])===k)return d.o2}
 const SIDE_DEFAULTS={griff:'L',juan:'R',steve:'L',russ:'L',miles:'L',flor:'L',ronnie:'L',kirby:'L',robbie:'L',simon:'L',adam:'L'}; // my side with that partner
-function autoSide(){const k=key(F.partner);if(!k)return;if(USUAL_SIDE[k]){F.sides.partner=USUAL_SIDE[k];F.sides.me=opp(USUAL_SIDE[k]);vLog();return}const last=allM().find(s=>key(s.partner)===k&&s.id!==editId&&sidesOf(s).me);const me=last?sidesOf(last).me:(SIDE_DEFAULTS[k]||(isLefty(k)?'L':null));if(!me)return;F.sides.me=me;F.sides.partner=last&&sidesOf(last).partner||opp(me);vLog()}
+function autoSide(){const k=key(F.partner);if(!k)return;if(k==='juan'){F.sides.me='R';F.sides.partner='L'}else{F.sides.me='L';F.sides.partner='R'}vLog()}
 const USUAL_SIDE={ronnie:'R',griff:'R'}; // fixed usual side for any role
 function lastSide(k){if(USUAL_SIDE[k])return USUAL_SIDE[k];const m=allM().find(s=>s.id!==editId&&sideFor(s,k));return m?sideFor(m,k):(isLefty(k)?'R':null)}
 function autoOpp(i){const k=key(F.opps[i]);if(!k)return;const sd=lastSide(k);if(!sd)return;const me='o'+(i+1),ot='o'+(2-i);F.sides[me]=sd;const ok=key(F.opps[1-i]),os=ok&&lastSide(ok);F.sides[ot]=os&&os!==sd?os:opp(sd);vLog()}
@@ -552,7 +552,7 @@ function seedReal(force){try{if(!Array.isArray(S.sessions))S.sessions=[];if(!Arr
  if(!S.upcoming.some(x=>x.id===U14.id)&&!S.sessions.some(x=>x.id===U14.id)&&!S.deletedSeeds.includes(U14.id))S.upcoming.push(U14);
  const U15={id:'seedup15',date:'2026-11-03',time:'13:00',mins:90,int:'Normal',club:'',notes:'',partner:'Steve',opps:['Giacomo','Russ'],sides:{me:'L',partner:'R',o1:'L',o2:'R'}};
  if(!S.upcoming.some(x=>x.id===U15.id)&&!S.sessions.some(x=>x.id===U15.id)&&!S.deletedSeeds.includes(U15.id))S.upcoming.push(U15);
- const U16={id:'seedup16',date:'2026-11-11',time:'13:00',mins:90,int:'Normal',club:'',notes:'',partner:'Steve',opps:['Giacomo','Russ'],sides:{me:'L',partner:'R',o1:'L',o2:'R'}};
+ const U16={id:'seedup16',date:'2026-11-11',time:'13:00',mins:90,int:'Normal',club:'',notes:'',partner:'Andy',opps:['Russ','Giacomo'],sides:{me:'L',partner:'R',o1:'L',o2:'R'}};
  if(!S.upcoming.some(x=>x.id===U16.id)&&!S.sessions.some(x=>x.id===U16.id)&&!S.deletedSeeds.includes(U16.id))S.upcoming.push(U16);
  const U17={id:'seedup17',date:'2026-11-09',time:'06:45',mins:90,int:'Normal',club:'',notes:'',partner:'Juan',opps:['Umberto','Pietro'],sides:{me:'R',partner:'L',o1:'L',o2:'R'}};
  if(!S.upcoming.some(x=>x.id===U17.id)&&!S.sessions.some(x=>x.id===U17.id)&&!S.deletedSeeds.includes(U17.id))S.upcoming.push(U17);
@@ -583,6 +583,8 @@ function seedReal(force){try{if(!Array.isArray(S.sessions))S.sessions=[];if(!Arr
  if(!S.mig.tomsub1){const u13=S.upcoming.find(x=>x.id==='seedup13');if(u13&&(u13.opps||[]).join('|')==='Umberto|Tom'){u13.opps=['Umberto','Marcos'];u13.gtype=suggestGT(u13.partner,u13.opps)}S.mig.tomsub1=1}
 if(!S.mig.mon645p1){const u17=S.upcoming.find(x=>x.id==='seedup17');if(u17&&(u17.opps||[]).join('|')==='Umberto|Ed'){u17.opps=['Umberto','Pietro'];u17.sides={me:'R',partner:'L',o1:'L',o2:'R'};u17.gtype=suggestGT(u17.partner,u17.opps)}S.mig.mon645p1=1}
  if(!S.mig.sec1){S.upcoming.forEach(u=>{if(!u.kind&&!key(u.partner||'')&&!(u.opps||[]).some(x=>key(x))&&/training/i.test(u.notes||''))u.kind='T'});S.mig.sec1=1}
+ if(!S.mig.wedandy1){const u16=S.upcoming.find(x=>x.id==='seedup16');if(u16&&u16.partner==='Steve'&&(u16.opps||[]).join('|')==='Giacomo|Russ'){u16.partner='Andy';u16.opps=['Russ','Giacomo'];u16.sides={me:'L',partner:'R',o1:'L',o2:'R'};u16.gtype=suggestGT(u16.partner,u16.opps)}S.mig.wedandy1=1}
+ if(!S.mig.sidesrule1){const fx=x=>{const p=key(x.partner||'');if(!p)return;if(!x.sides)x.sides={};const j=p==='juan';x.sides.me=j?'R':'L';x.sides.partner=j?'L':'R'};S.sessions.forEach(s=>{if(s.type==='match')fx(s)});S.upcoming.forEach(fx);S.mig.sidesrule1=1}
  if(force){const r3=S.sessions.find(y=>y.id==='real3');if(r3)r3.result='X'}
  save();localStorage.setItem('padellog.seed.v2','1')}catch(e){console.error('seed failed',e)}}
 seedReal();

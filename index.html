@@ -572,7 +572,7 @@ function seedReal(force){try{if(!Array.isArray(S.sessions))S.sessions=[];if(!Arr
  if(!S.upcoming.some(x=>x.id===U24.id)&&!S.sessions.some(x=>x.id===U24.id)&&!S.deletedSeeds.includes(U24.id))S.upcoming.push(U24);
  const U25={id:'seedup25',date:'2026-11-16',time:'06:45',mins:90,int:'Normal',club:'',notes:'',partner:'Juan',opps:['Umberto','TBD'],sides:{me:'R',partner:'L',o1:'L',o2:'R'}};
  if(!S.upcoming.some(x=>x.id===U25.id)&&!S.sessions.some(x=>x.id===U25.id)&&!S.deletedSeeds.includes(U25.id))S.upcoming.push(U25);
- const U26={id:'seedup26',date:'2026-11-16',time:'13:00',mins:90,int:'Normal',club:'',notes:'',partner:'Griff',opps:['Russ','TBD'],sides:{me:'L',partner:'R',o1:'L',o2:'R'}};
+ const U26={id:'seedup26',date:'2026-11-16',time:'13:00',mins:90,int:'Normal',club:'',notes:'',partner:'Griff',opps:['Russ','Russ B'],sides:{me:'L',partner:'R',o1:'L',o2:'R'}};
  if(!S.upcoming.some(x=>x.id===U26.id)&&!S.sessions.some(x=>x.id===U26.id)&&!S.deletedSeeds.includes(U26.id))S.upcoming.push(U26);
  const U27={id:'seedup27',date:'2026-11-17',time:'13:00',mins:90,int:'Normal',club:'',notes:'Training',kind:'T',partner:'',opps:[],sides:{me:'L'}};
  if(!S.upcoming.some(x=>x.id===U27.id)&&!S.sessions.some(x=>x.id===U27.id)&&!S.deletedSeeds.includes(U27.id))S.upcoming.push(U27);
@@ -604,6 +604,7 @@ if(!S.mig.mon645p1){const u17=S.upcoming.find(x=>x.id==='seedup17');if(u17&&(u17
  if(!S.mig.thunogriff1){const u30=S.upcoming.find(x=>x.id==='seedup30');if(u30&&u30.partner==='Griff'&&(u30.opps||[]).join('|')==='Russ B|TBD'){u30.partner='TBD';u30.sides={me:'L',partner:'R',o1:'L',o2:'R'};u30.gtype=suggestGT(u30.partner,u30.opps)}S.mig.thunogriff1=1}
  if(!S.mig.delum1){S.upcoming=S.upcoming.filter(x=>x.id!=='seedup20');S.sessions=S.sessions.filter(x=>x.id!=='seedup20');if(!S.deletedSeeds.includes('seedup20'))S.deletedSeeds.push('seedup20');S.mig.delum1=1}
  if(!S.mig.delumfix1){S.deletedSeeds=S.deletedSeeds.filter(x=>x!=='seedup20');const U20R={id:'seedup20',date:'2026-11-11',time:'06:45',mins:90,int:'Normal',club:'',notes:'',partner:'Juan',opps:['Umberto','TBD'],sides:{me:'R',partner:'L',o1:'L',o2:'R'}};if(!S.upcoming.some(x=>x.id==='seedup20')&&!S.sessions.some(x=>x.id==='seedup20'))S.upcoming.push(U20R);S.mig.delumfix1=1}
+ if(!S.mig.monrussb1){const u26=S.upcoming.find(x=>x.id==='seedup26');if(u26&&u26.partner==='Griff'&&(u26.opps||[]).join('|')==='Russ|TBD'){u26.opps=['Russ','Russ B'];u26.gtype=suggestGT(u26.partner,u26.opps)}S.mig.monrussb1=1}
  if(force){const r3=S.sessions.find(y=>y.id==='real3');if(r3)r3.result='X'}
  save();localStorage.setItem('padellog.seed.v2','1')}catch(e){console.error('seed failed',e)}}
 seedReal();

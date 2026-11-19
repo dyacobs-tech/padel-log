@@ -105,7 +105,7 @@ const isLefty=k=>{const o=(S.lefty||{})[k];return o!=null?!!o:!!LEFTY_SEED[k]};
 function setLefty(k,v){S.lefty=S.lefty||{};S.lefty[k]=v?1:0;save();openPlayer(k)}
 function setStart(k,v){S.startLevels=S.startLevels||{};if(v===''||isNaN(+v))delete S.startLevels[k];else S.startLevels[k]=Math.min(7,Math.max(0,+v));save();_rc=null;if(k==='me'){if(tab==='set')vSet()}else openPlayer(k)}
 // ---------- RATINGS (0-7, Elo-style) ----------
-const START_LEVELS={me:4.5,juan:6.5,steve:4.25,stephen:3.4,miles:4.25,robbie:3.5,ronnie:3.5,flor:4,todd:5,pietro:5.25,jj:5.5,dani:5.5,blake:5.25,umberto:5.5,ed:5.25,anders:4,griff:3.5,adam:3,charlie:3.25,daniel:3,russ:3.75,'russ b':3.5,'dave h':5.25,nico:4.75,tom:5.5,marcos:5.5,giacomo:4.5,callum:3.75};
+const START_LEVELS={me:4.5,juan:6.5,steve:4.25,stephen:3.4,miles:4.25,robbie:3.5,ronnie:3.5,flor:4,todd:5,pietro:5.25,jj:5.5,dani:5.5,blake:5.25,umberto:5.5,ed:5.25,anders:4,griff:3.5,adam:3,charlie:3.25,daniel:3,russ:3.75,'russ b':3.5,'dave h':5.25,ettore:5.25,nico:4.75,tom:5.5,marcos:5.5,giacomo:4.5,callum:3.75};
 const DEFAULT_LEVEL=3.5,RSCALE=1.5; // win prob = 1/(1+10^(-(teamA-teamB)/1.5))
 const kFac=n=>0.1+0.3/(1+n/5); // 0.40 for a new player, ~0.25 after 5 matches, ~0.16 after 20
 function startLevel(k){const o=(S.startLevels||{})[k];return o!=null&&o!==''?+o:(START_LEVELS[k]??DEFAULT_LEVEL)}
@@ -613,6 +613,7 @@ if(!S.mig.mon645p1){const u17=S.upcoming.find(x=>x.id==='seedup17');if(u17&&(u17
  if(!S.mig.monrussout1){const u26=S.upcoming.find(x=>x.id==='seedup26');if(u26&&u26.partner==='Griff'&&(u26.opps||[]).join('|')==='Russ|Russ B'){u26.opps=['Russ B','TBD'];u26.gtype=suggestGT(u26.partner,u26.opps)}S.mig.monrussout1=1}
  if(!S.mig.wedumberto1){const u28=S.upcoming.find(x=>x.id==='seedup28');if(u28&&u28.partner==='Juan'&&(u28.opps||[]).join('|')==='TBD|TBD'){u28.opps=['Umberto','Pietro'];u28.sides={me:'R',partner:'L',o1:'L',o2:'R'};u28.gtype=suggestGT(u28.partner,u28.opps)}S.mig.wedumberto1=1}
  if(!S.mig.delthu1pm1){S.upcoming=S.upcoming.filter(x=>x.id!=='seedup30');S.sessions=S.sessions.filter(x=>x.id!=='seedup30');if(!S.deletedSeeds.includes('seedup30'))S.deletedSeeds.push('seedup30');S.mig.delthu1pm1=1}
+ if(!S.mig.thuettore1){const u31=S.upcoming.find(x=>x.id==='seedup31');if(u31&&(u31.opps||[]).join('|')==='Dave H|Nico'||u31&&(u31.opps||[]).join('|')==='Dave H|TBD'){u31.opps=['Dave H','Ettore'];u31.sides={me:'R',partner:'L',o1:'L',o2:'R'};u31.gtype=suggestGT(u31.partner,u31.opps)}S.mig.thuettore1=1}
  if(force){const r3=S.sessions.find(y=>y.id==='real3');if(r3)r3.result='X'}
  save();localStorage.setItem('padellog.seed.v2','1')}catch(e){console.error('seed failed',e)}}
 seedReal();

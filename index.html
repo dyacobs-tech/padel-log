@@ -588,6 +588,16 @@ function seedReal(force){try{if(!Array.isArray(S.sessions))S.sessions=[];if(!Arr
  if(!S.upcoming.some(x=>x.id===U32.id)&&!S.sessions.some(x=>x.id===U32.id)&&!S.deletedSeeds.includes(U32.id))S.upcoming.push(U32);
  const U33={id:'seedup33',date:'2026-11-23',time:'13:00',mins:90,int:'Normal',club:'',notes:'',partner:'Griff',opps:['Anders','Jon B'],sides:{me:'L',partner:'R',o1:'R',o2:'L'}};
  if(!S.upcoming.some(x=>x.id===U33.id)&&!S.sessions.some(x=>x.id===U33.id)&&!S.deletedSeeds.includes(U33.id))S.upcoming.push(U33);
+ const U34={id:'seedup34',date:'2026-11-24',time:'13:00',mins:90,int:'Normal',club:'',notes:'',kind:'T'};
+ if(!S.upcoming.some(x=>x.id===U34.id)&&!S.sessions.some(x=>x.id===U34.id)&&!S.deletedSeeds.includes(U34.id))S.upcoming.push(U34);
+ const U35={id:'seedup35',date:'2026-11-25',time:'06:45',mins:90,int:'Normal',club:'',notes:'',partner:'Juan',opps:['Umberto','TBD'],sides:{me:'R',partner:'L',o1:'L',o2:'R'}};
+ if(!S.upcoming.some(x=>x.id===U35.id)&&!S.sessions.some(x=>x.id===U35.id)&&!S.deletedSeeds.includes(U35.id))S.upcoming.push(U35);
+ const U36={id:'seedup36',date:'2026-11-25',time:'13:00',mins:90,int:'Normal',club:'',notes:'',partner:'Daniel',opps:['Russ','Griff'],sides:{me:'L',partner:'R',o1:'L',o2:'R'}};
+ if(!S.upcoming.some(x=>x.id===U36.id)&&!S.sessions.some(x=>x.id===U36.id)&&!S.deletedSeeds.includes(U36.id))S.upcoming.push(U36);
+ const U37={id:'seedup37',date:'2026-11-25',time:'18:30',mins:90,int:'Normal',club:'',notes:'',partner:'Juan',opps:['Dave H','Ettore'],sides:{me:'R',partner:'L',o1:'L',o2:'R'}};
+ if(!S.upcoming.some(x=>x.id===U37.id)&&!S.sessions.some(x=>x.id===U37.id)&&!S.deletedSeeds.includes(U37.id))S.upcoming.push(U37);
+ const U38={id:'seedup38',date:'2026-11-28',time:'07:00',mins:90,int:'Normal',club:'',notes:'',partner:'TBD',opps:['TBD','TBD'],sides:{me:'L',partner:'R',o1:'L',o2:'R'}};
+ if(!S.upcoming.some(x=>x.id===U38.id)&&!S.sessions.some(x=>x.id===U38.id)&&!S.deletedSeeds.includes(U38.id))S.upcoming.push(U38);
  if(!S.mig.wk44){S.upcoming.forEach(u=>{if(!u.gtype)u.gtype=suggestGT(u.partner,u.opps||[])});S.mig.wk44=1}
  if(!S.mig.profile1){S.profile=Object.assign({bf:13.5,age:42,heightIn:68,sex:'M',rhr:44},S.profile||{});S.weight=145;S.unit='lb';S.mig.profile1=1}
  if(!S.mig.gt1){const pre=ratings().pre;const sg=(m)=>{const p=pre[m.id];const ks=[key(m.partner),...(m.opps||[]).map(key)].filter(Boolean);if(!ks.length)return'I';const a=ks.reduce((x,k)=>x+(p&&p[k]!=null?p[k]:rt(k)),0)/ks.length;return a>=4.5?'A':'I'};S.sessions.forEach(m=>{if(m.type==='match'&&!m.gtype)m.gtype=sg(m)});S.upcoming.forEach(u=>{if(!u.gtype)u.gtype=suggestGT(u.partner,u.opps)});S.mig.gt1=1}

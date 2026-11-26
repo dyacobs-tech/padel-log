@@ -626,6 +626,7 @@ if(!S.mig.mon645p1){const u17=S.upcoming.find(x=>x.id==='seedup17');if(u17&&(u17
  if(!S.mig.wedumberto1){const u28=S.upcoming.find(x=>x.id==='seedup28');if(u28&&u28.partner==='Juan'&&(u28.opps||[]).join('|')==='TBD|TBD'){u28.opps=['Umberto','Pietro'];u28.sides={me:'R',partner:'L',o1:'L',o2:'R'};u28.gtype=suggestGT(u28.partner,u28.opps)}S.mig.wedumberto1=1}
  if(!S.mig.delthu1pm1){S.upcoming=S.upcoming.filter(x=>x.id!=='seedup30');S.sessions=S.sessions.filter(x=>x.id!=='seedup30');if(!S.deletedSeeds.includes('seedup30'))S.deletedSeeds.push('seedup30');S.mig.delthu1pm1=1}
  if(!S.mig.thuettore1){const u31=S.upcoming.find(x=>x.id==='seedup31');if(u31&&(u31.opps||[]).join('|')==='Dave H|Nico'||u31&&(u31.opps||[]).join('|')==='Dave H|TBD'){u31.opps=['Dave H','Ettore'];u31.sides={me:'R',partner:'L',o1:'L',o2:'R'};u31.gtype=suggestGT(u31.partner,u31.opps)}S.mig.thuettore1=1}
+ if(!S.mig.wedtrain1){const u35=S.upcoming.find(x=>x.id==='seedup35');if(u35&&u35.partner==='Juan'&&!u35.kind){u35.kind='T';delete u35.partner;delete u35.opps;delete u35.sides;delete u35.gtype}S.mig.wedtrain1=1}
  if(force){const r3=S.sessions.find(y=>y.id==='real3');if(r3)r3.result='X'}
  save();localStorage.setItem('padellog.seed.v2','1')}catch(e){console.error('seed failed',e)}}
 seedReal();
